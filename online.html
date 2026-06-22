@@ -88,6 +88,7 @@ function renderSheet(){const c=selected;document.getElementById('sTitle').textCo
   let h=`<div class="kv"><span>Propriétaire</span><b>${mine(c)?'TOI':(c.owner?'@'+c.owner:'libre')}</b></div>`;
   if(c.amenity)h+=`<div class="kv"><span>Aménité</span><b>${EMOJI[c.amenity.type]} ${c.amenity.type.toLowerCase()} niv.${c.amenity.level}</b></div>`;
   if(isStation(c)&&c.netMult>1)h+=`<div class="kv"><span>Réseau 🚇</span><b style="color:#7fd1ff">+${Math.round((c.netMult-1)*100)}%</b></div>`;
+  if(c.synergies)for(const s of c.synergies)h+=`<div class="kv"><span>Synergie ${EMOJI[s.partner]||''} ${s.partner.toLowerCase()}</span><b style="color:var(--green)">×${s.mult}</b></div>`;
   // achats
   if(!c.owner){h+=`<div class="row"><button class="btn primary" style="flex:1" onclick="doBuy('${c.cell}')">Acheter · ${c.value} cr</button></div>`;}
   else if(!mine(c)&&c.forSale){h+=`<div class="row"><button class="btn gold" style="flex:1" onclick="doBuy('${c.cell}')">🏷️ Acheter · ${c.ask} cr</button></div>`;}
