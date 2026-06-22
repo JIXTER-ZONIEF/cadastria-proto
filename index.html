@@ -87,13 +87,14 @@ const D=window.METZ_DATA;
 let cells,state,map,fxLayer,markerLayer,boardLayer;
 const KEY='cadastria_metz_v5';
 function gdist(a,b){return Math.hypot((a.lat-b.lat)*111320,(a.lon-b.lon)*111320*Math.cos(a.lat*Math.PI/180));}
-function freshCells(){return D.cells.map(c=>({...c,owner:null,amenity:null,layer:null,marker:null}));}
+function freshCells(){return D.cells.map(c=>({...c,owner:null,amenity:null,layer:null,marker:null,boost:1}));}
 
 function init(){
   cells=freshCells();
-  state={money:1500,day:1,pending:0,goal:5000,feed:[],over:false};
+  state={money:1500,day:1,pending:0,goal:5000,feed:[],over:false,events:[],rivalId:PNJ[Math.floor(Math.random()*PNJ.length)].id};
   seedPNJ();
-  state.feed=[{t:'Le quartier est déjà animé : '+PNJ[0].name+', '+PNJ[1].name+' et '+PNJ[2].name+' y ont investi.',cls:'muted'}];
+  const rv=PNJ.find(p=>p.id===state.rivalId);
+  state.feed=[{t:'Le quartier est déjà animé. ⚔️ Ton rival cette saison : <b>@'+rv.name+'</b> — surveille tes voisins.',cls:'muted'}];
 }
 function seedPNJ(){
   const hot=cells.filter(c=>c.socle>=88).sort((a,b)=>b.socle-a.socle);const pick=[];
@@ -101,8 +102,24 @@ function seedPNJ(){
   pick.forEach((c,i)=>{const p=PNJ[i%PNJ.length];c.owner=p.id;const t=c.cat==='transport'?'TRANSPORT':c.cat==='parc'?'PARC':c.cat==='ecole'?'ECOLE':'COMMERCE';c.amenity={type:t,level:1+(Math.random()<0.3?1:0),by:p.id};});
 }
 // ===== Sauvegarde (locale) =====
-function save(){try{const dyn=cells.filter(c=>c.owner||c.amenity).map(c=>({i:c.i,owner:c.owner,amenity:c.amenity}));localStorage.setItem(KEY,JSON.stringify({v:5,money:state.money,day:state.day,pending:state.pending,goal:state.goal,over:state.over,cells:dyn}));}catch(e){}}
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(!s||s.v!==5)return false;cells=freshCells();const bi=new Map(cells.map(c=>[c.i,c]));(s.cells||[]).forEach(d=>{const c=bi.get(d.i);if(c){c.owner=d.owner;c.amenity=d.amenity;}});state={money:s.money,day:s.day,pending:s.pending,goal:s.goal,over:!!s.over,feed:[]};return true;}catch(e){return false;}}
+function save(){try{const dyn=cells.filter(c=>c.owner||c.amenity).map(c=>({i:c.i,owner:c.owner,amenity:c.amenity}));localStorage.setItem(KEY,JSON.stringify({v:5,money:state.money,day:state.day,pending:state.pending,goal:state.goal,over:state.over,events:state.events,rivalId:state.rivalId,cells:dyn}));}catch(e){}}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(!s||s.v!==5)return false;cells=freshCells();const bi=new Map(cells.map(c=>[c.i,c]));(s.cells||[]).forEach(d=>{const c=bi.get(d.i);if(c){c.owner=d.owner;c.amenity=d.amenity;}});state={money:s.money,day:s.day,pending:s.pending,goal:s.goal,over:!!s.over,feed:[],events:s.events||[],rivalId:s.rivalId||PNJ[0].id};return true;}catch(e){return false;}}
+// ===== Événements de quartier (exogènes, valeur temporaire) =====
+function recomputeBoosts(){cells.forEach(c=>c.boost=1);for(const ev of state.events)for(const i of ev.cells){if(cells[i])cells[i].boost*=ev.factor;}}
+function expireEvents(){state.events=state.events.filter(ev=>ev.until>=state.day);}
+function affectedAround(center,radius){return cells.filter(c=>gdist(c,center)<=radius);}
+function minDistToMine(c,mine){let m=1e9;for(const x of mine){const d=gdist(c,x);if(d<m)m=d;}return m;}
+function applyRandomEvent(){
+  const kinds=[{e:'🎉',l:'Un festival anime',f:1.20,d:4},{e:'🏪',l:'Une enseigne phare ouvre près de',f:1.15,d:5},{e:'📰',l:'Le quartier fait parler de lui autour de',f:1.12,d:3},{e:'🌳',l:'Un réaménagement verdit',f:1.14,d:4},{e:'🚧',l:'Des travaux perturbent',f:0.85,d:3}];
+  const k=kinds[Math.floor(Math.random()*kinds.length)];
+  const named=cells.filter(c=>c.near);const center=named.length?named[Math.floor(Math.random()*named.length)]:cells[Math.floor(Math.random()*cells.length)];
+  const aff=affectedAround(center,150);if(!aff.length)return null;
+  state.events.push({cells:aff.map(c=>c.i),factor:k.f,until:state.day+k.d,e:k.e});
+  aff.forEach(c=>{if(c.layer)pulse(c);});
+  const pos=k.f>=1;const pct=Math.round(Math.abs(k.f-1)*100);
+  const mineTouched=aff.filter(c=>c.owner==='me').length;
+  return {t:`${k.e} ${k.l} <b>${center.near||'le quartier'}</b> <span class="amt ${pos?'pos':'neg'}">${pos?'+':'-'}${pct}%</span> (${k.d} j)${mineTouched?` · touche ${mineTouched} de tes biens`:''}`,cls:''};
+}
 
 // ===== Éco (sur voisinage réel précalculé cell.nbr = [[index, kernel], ...]) =====
 function ownerKind(c){return c.owner==='me'?'HUMAN':(c.owner?'PNJ':null);}
@@ -115,7 +132,7 @@ function influence(c){
   pnj=Math.min(pnj,P.pnjInflCap);return Math.min(pnj+hum,P.totalInflCap);
 }
 function collMult(c){return P.multMax*Math.tanh(influence(c)/P.k);}
-function value(c){const cap=c.amenity?P.captureBuilt:P.captureBare;return Math.min(c.socle*(1+cap*collMult(c)),c.socle*(1+P.multMax));}
+function value(c){const cap=c.amenity?P.captureBuilt:P.captureBare;const base=Math.min(c.socle*(1+cap*collMult(c)),c.socle*(1+P.multMax));return base*(c.boost||1);}
 function rentePerDay(v){return P.renteRate*Math.pow(v,P.renteExp);}
 function builderOp(a){return OP[a.type]*lvlF(a.level)*P.builderBonus;}
 function maint(a){return P.maintRate*OP[a.type]*lvlF(a.level);}
@@ -179,10 +196,10 @@ function build(c,t,lvl,cost){if(state.money<cost)return;state.money-=cost;const 
 function buy(i){const c=cells[i];const cost=buyCost(c);if(state.money<cost)return;state.money-=cost;c.owner='me';if(c.amenity)c.amenity.by='me';toast('Acquis · '+(c.near||c.cat));syncHUD();renderSheet(c);redraw();save();}
 
 // ===== Tour / PNJ / feed =====
-function nextDay(){if(state.over)return;state.pending+=dailyNet();state.day++;const feed=[];const actors=shuffle(PNJ.slice()).slice(0,2);for(const p of actors)pnjAct(p,feed);if(!feed.length)feed.push({t:'Nuit calme dans le quartier.',cls:'muted'});state.feed=feed;showFeed();syncHUD();save();if(state.day>30||empireValue()>=state.goal)endSeason();}
+function nextDay(){if(state.over)return;state.pending+=dailyNet();state.day++;expireEvents();const feed=[];if(Math.random()<0.6){const ev=applyRandomEvent();if(ev)feed.push(ev);}recomputeBoosts();const actors=shuffle(PNJ.slice()).slice(0,2);for(const p of actors)pnjAct(p,feed);if(!feed.length)feed.push({t:'Nuit calme dans le quartier.',cls:'muted'});state.feed=feed;showFeed();syncHUD();redraw();save();if(state.day>30||empireValue()>=state.goal)endSeason();}
 function snapshot(arr){const m=new Map();arr.forEach(c=>m.set(c,value(c)));return m;}
-function pnjAct(p,feed){const mine=myCells();const own=cells.filter(c=>c.owner===p.id&&c.amenity&&c.amenity.level<3);if(own.length&&Math.random()<0.5){const t=own[Math.floor(Math.random()*own.length)];const before=snapshot(mine);t.amenity.level++;refreshMarker(t);feedDelta(p,t,before,mine,feed,'a agrandi son '+t.amenity.type.toLowerCase());redraw();return;}const free=cells.filter(c=>!c.owner).sort((a,b)=>b.socle-a.socle);const tg=free[Math.floor(Math.random()*Math.min(12,free.length))];if(!tg)return;tg.owner=p.id;const ty=tg.cat==='transport'?'TRANSPORT':tg.cat==='parc'?'PARC':tg.cat==='ecole'?'ECOLE':'COMMERCE';const before=snapshot(mine);tg.amenity={type:ty,level:1,by:p.id};refreshMarker(tg);feedDelta(p,tg,before,mine,feed,'a construit un '+ty.toLowerCase());redraw();}
-function feedDelta(p,target,before,mine,feed,act){let touched=0,bestc=null,bestd=0;mine.forEach(c=>{const d=value(c)-before.get(c);if(d>0.5){touched++;if(d>bestd){bestd=d;bestc=c;}}});if(touched>0){const pct=Math.round(bestd/(value(bestc)-bestd)*100);feed.push({t:`${EMOJI[target.amenity.type]} <b>@${p.name}</b> ${act} ${target.near?('('+target.near+')'):''} → ton bien ${bestc.near?('« '+bestc.near+' »'):''} <span class="amt pos">+${pct>0?pct:1}%</span>${touched>1?' (+'+(touched-1)+' autres)':''}`,cls:''});}else{feed.push({t:`<b>@${p.name}</b> ${act} ${target.near?('('+target.near+')'):'dans le quartier'}.`,cls:'muted'});}}
+function pnjAct(p,feed){const mine=myCells();const isRival=p.id===state.rivalId;const own=cells.filter(c=>c.owner===p.id&&c.amenity&&c.amenity.level<3);if(own.length&&Math.random()<0.45){const t=own[Math.floor(Math.random()*own.length)];const before=snapshot(mine);t.amenity.level++;refreshMarker(t);feedDelta(p,t,before,mine,feed,'a agrandi son '+t.amenity.type.toLowerCase(),isRival);redraw();return;}let pool=cells.filter(c=>!c.owner);if(isRival&&mine.length){pool.sort((a,b)=>minDistToMine(a,mine)-minDistToMine(b,mine));pool=pool.slice(0,10);}else{pool.sort((a,b)=>b.socle-a.socle);pool=pool.slice(0,12);}const tg=pool[Math.floor(Math.random()*pool.length)];if(!tg)return;tg.owner=p.id;const ty=tg.cat==='transport'?'TRANSPORT':tg.cat==='parc'?'PARC':tg.cat==='ecole'?'ECOLE':'COMMERCE';const before=snapshot(mine);tg.amenity={type:ty,level:1,by:p.id};refreshMarker(tg);feedDelta(p,tg,before,mine,feed,'a construit un '+ty.toLowerCase(),isRival);redraw();}
+function feedDelta(p,target,before,mine,feed,act,isRival){const pre=isRival?'⚔️ ':'';let touched=0,bestc=null,bestd=0;mine.forEach(c=>{const d=value(c)-before.get(c);if(d>0.5){touched++;if(d>bestd){bestd=d;bestc=c;}}});if(touched>0){const pct=Math.round(bestd/(value(bestc)-bestd)*100);feed.push({t:`${pre}${EMOJI[target.amenity.type]} <b>@${p.name}</b> ${act} ${target.near?('('+target.near+')'):''} → ton bien ${bestc.near?('« '+bestc.near+' »'):''} <span class="amt pos">+${pct>0?pct:1}%</span>${touched>1?' (+'+(touched-1)+' autres)':''}`,cls:''});}else{feed.push({t:`${pre}<b>@${p.name}</b> ${act} ${target.near?('('+target.near+')'):'dans le quartier'}.`,cls:isRival?'':'muted'});}}
 function showFeed(){document.getElementById('feedDay').textContent='Jour '+state.day;document.getElementById('feedList').innerHTML=state.feed.map(f=>`<li class="${f.cls}">${f.t}</li>`).join('');document.getElementById('feedModal').classList.add('open');}
 function closeFeed(){document.getElementById('feedModal').classList.remove('open');}
 
@@ -202,6 +219,7 @@ document.getElementById('menuBtn').onclick=()=>{if(confirm('Nouvelle partie ? La
 createMap();
 const loaded=load();
 if(!loaded)init();
+recomputeBoosts();
 renderBoard();
 syncHUD();
 if(loaded){toast('Partie reprise · jour '+state.day);}else{document.getElementById('onboard').classList.add('open');}
