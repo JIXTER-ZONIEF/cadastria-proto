@@ -44,6 +44,7 @@
   <div class="stat"><b id="empire">—</b><span>empire</span></div>
   <div class="stat"><b id="day">—</b><span>jour</span></div>
   <div class="grow"></div>
+  <button class="btn icon" id="notifBtn" title="Notifications">🔔<span class="badge" id="ntBadge" style="display:none"></span></button>
   <button class="btn icon" id="lbBtn" title="Classement">🏆</button>
   <button class="btn icon" id="feedBtn" title="Actualité du monde">📰<span class="badge" id="wdBadge" style="display:none;background:#3da5ff;color:#04243f"></span></button>
   <button class="btn icon" id="marketBtn" title="Biens à vendre">🏷️</button>
@@ -139,6 +140,14 @@ document.getElementById('marketBtn').onclick=()=>act(openMarket);
 document.getElementById('pfBtn').onclick=()=>act(openPortfolio);
 document.getElementById('feedBtn').onclick=()=>act(openFeed);
 document.getElementById('lbBtn').onclick=()=>act(openLeaderboard);
+document.getElementById('notifBtn').onclick=()=>act(openNotifs);
+const NOTE={offer:'🤝',offer_accepted:'✅',offer_refused:'❌',sold:'🏷️',season:'🏆'};
+async function refreshNotifBadge(){try{const n=await api('/notifications');const b=document.getElementById('ntBadge');if(n.unread>0){b.textContent=n.unread;b.style.display='flex';}else b.style.display='none';}catch(e){}}
+async function openNotifs(){const n=await api('/notifications');document.getElementById('pTitle').textContent='🔔 Notifications';
+  const items=n.items||[];
+  document.getElementById('pBody').innerHTML=items.length?items.map(i=>`<div class="item" style="${i.read?'':'border-color:var(--me)'}"><div class="meta" style="margin:0">${NOTE[i.type]||'🔔'} ${i.text}</div></div>`).join(''):'<div class="sub">Aucune notification pour le moment.</div>';
+  openPanel();
+  if(n.unread>0){try{await api('/notifications/read','POST');}catch(e){}document.getElementById('ntBadge').style.display='none';}}
 async function refreshFeedBadge(){try{const f=await api('/feed');const b=document.getElementById('wdBadge');b.textContent='j'+f.worldDay;b.style.display='flex';return f;}catch(e){}}
 async function openFeed(){const f=await api('/feed');document.getElementById('pTitle').textContent='📰 Monde · jour '+f.worldDay;
   const season=`<div class="sub">🗓️ Saison ${f.season} · fin dans ${f.seasonEndsInDays} j (sur ${f.seasonDays})</div>`;
@@ -188,10 +197,10 @@ async function startGame(){
     layer=L.layerGroup().addTo(map);lineLayer=L.layerGroup().addTo(map);markers=L.layerGroup().addTo(map);
     map.on('click',()=>{if(linkFrom){linkFrom=null;toast('Liaison annulée');return;}selected=null;document.getElementById('sheet').classList.remove('open');redraw();});
   }
-  try{await loadWorld();await refreshState();await refreshFeedBadge();document.getElementById('banner').style.display='none';}
+  try{await loadWorld();await refreshState();await refreshFeedBadge();await refreshNotifBadge();document.getElementById('banner').style.display='none';}
   catch(e){document.getElementById('banner').textContent='Serveur injoignable : '+e.message;}
   // le monde bouge tout seul (tick ~90s) : rafraîchissement discret (une seule boucle)
-  if(!startGame._iv)startGame._iv=setInterval(async()=>{try{await loadWorld();await refreshState();await refreshFeedBadge();}catch(e){}},60000);
+  if(!startGame._iv)startGame._iv=setInterval(async()=>{try{await loadWorld();await refreshState();await refreshFeedBadge();await refreshNotifBadge();}catch(e){}},60000);
 }
 function boot(){if(TOKEN){document.getElementById('banner').style.display='none';startGame();}else{document.getElementById('banner').style.display='none';document.getElementById('auth').style.display='flex';}}
 boot();
