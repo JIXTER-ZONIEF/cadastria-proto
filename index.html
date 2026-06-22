@@ -7,7 +7,7 @@
 <title>Cadastria · Metz (prototype)</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous"/>
 <style>
-  :root{ --bg:#0f1419; --panel:#1a2129; --panel2:#222c37; --line:#2e3a47; --txt:#e7edf3; --dim:#9fb0c0; --me:#3da5ff; --gold:#ffcf5c; --green:#37c878; --bad:#ff6b6b; }
+  :root{ --bg:#0f1419; --panel:#1a2129; --panel2:#222c37; --line:#2e3a47; --txt:#e7edf3; --dim:#9fb0c0; --me:#3da5ff; --gold:#ffcf5c; --green:#37c878; --bad:#ff6b6b; --metro:#7fd1ff; }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden}
   #map{position:fixed;inset:0;background:#0f1419}
@@ -42,6 +42,8 @@
   .leaflet-control-attribution{font-size:9px}
   #progress{position:fixed;top:79px;left:0;right:0;z-index:500;height:3px;background:#ffffff14;pointer-events:none}
   #progressFill{height:100%;width:0;background:linear-gradient(90deg,var(--me),var(--gold));transition:width .45s ease}
+  .btn.metro{background:#13344a;border-color:var(--metro);color:var(--metro)}
+  #linkbar{position:fixed;top:92px;left:50%;transform:translateX(-50%);z-index:610;background:#13344aee;border:1px solid var(--metro);color:var(--metro);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:600;display:none}#linkbar.show{display:block}
 </style>
 </head>
 <body>
@@ -56,6 +58,7 @@
 </div>
 <div id="season"><div class="pill">Saison 1 · Jour <b id="day">1</b>/30 · Empire <b id="empireGoal">0</b>/<b id="goal">5000</b></div></div>
 <div id="progress"><div id="progressFill"></div></div>
+<div id="linkbar">🚇 Tape une autre de tes stations pour relier — ou la carte pour annuler</div>
 <div id="toast"></div>
 
 <div id="sheet"><h3 id="sTitle">Bâtiment</h3><div class="sub" id="sSub"></div><div id="sBody"></div></div>
@@ -79,7 +82,7 @@
 <script src="data.js?v=4"></script>
 <script>
 // ===== Paramètres éco (miroir du futur cadastria-econ-core) =====
-const P={multMax:2.5,k:6,pnjInflCap:4.5,totalInflCap:8,commerceSchoolBonus:2.0,captureBare:0.30,captureBuilt:1.0,builderBonus:1.3,renteRate:0.05,renteExp:0.8,fricheTaxRate:0.03,maintRate:0.10,buildBase:50,buildDens:10,pnjBuyMarkup:1.15};
+const P={multMax:2.5,k:6,pnjInflCap:4.5,totalInflCap:8,commerceSchoolBonus:2.0,captureBare:0.30,captureBuilt:1.0,builderBonus:1.3,renteRate:0.05,renteExp:0.8,fricheTaxRate:0.03,maintRate:0.10,buildBase:50,buildDens:10,pnjBuyMarkup:1.15,netStep:0.22,netMax:6};
 const WEIGHT={RESIDENTIEL:0,COMMERCE:1,ECOLE:1,PARC:1.5,TRANSPORT:2};
 const OP={RESIDENTIEL:2,COMMERCE:5,ECOLE:3,PARC:3,TRANSPORT:4};
 const EMOJI={RESIDENTIEL:'🏠',COMMERCE:'🏪',ECOLE:'🏫',PARC:'🌳',TRANSPORT:'🚇'};
@@ -87,14 +90,14 @@ const PNJ=[{id:'p0',name:'Karim',c:'#e0567a'},{id:'p1',name:'Sophie',c:'#37c878'
 function lvlF(l){return l<=1?1:(l===2?1.5:1.8);}
 
 const D=window.METZ_DATA;
-let cells,state,map,fxLayer,markerLayer,boardLayer;
+let cells,state,map,fxLayer,markerLayer,boardLayer,selLineLayer;
 const KEY='cadastria_metz_v5';
 function gdist(a,b){return Math.hypot((a.lat-b.lat)*111320,(a.lon-b.lon)*111320*Math.cos(a.lat*Math.PI/180));}
-function freshCells(){return D.cells.map(c=>({...c,owner:null,amenity:null,layer:null,marker:null,boost:1}));}
+function freshCells(){return D.cells.map(c=>({...c,owner:null,amenity:null,layer:null,marker:null,boost:1,netMult:1}));}
 
 function init(){
   cells=freshCells();
-  state={money:1500,day:1,pending:0,goal:5000,feed:[],over:false,events:[],rivalId:PNJ[Math.floor(Math.random()*PNJ.length)].id};
+  state={money:1500,day:1,pending:0,goal:5000,feed:[],over:false,events:[],lines:[],linkFrom:null,rivalId:PNJ[Math.floor(Math.random()*PNJ.length)].id};
   seedPNJ();
   const rv=PNJ.find(p=>p.id===state.rivalId);
   state.feed=[{t:'Le quartier est déjà animé. ⚔️ Ton rival cette saison : <b>@'+rv.name+'</b> — surveille tes voisins.',cls:'muted'}];
@@ -105,8 +108,16 @@ function seedPNJ(){
   pick.forEach((c,i)=>{const p=PNJ[i%PNJ.length];c.owner=p.id;const t=c.cat==='transport'?'TRANSPORT':c.cat==='parc'?'PARC':c.cat==='ecole'?'ECOLE':'COMMERCE';c.amenity={type:t,level:1+(Math.random()<0.3?1:0),by:p.id};});
 }
 // ===== Sauvegarde (locale) =====
-function save(){try{const dyn=cells.filter(c=>c.owner||c.amenity).map(c=>({i:c.i,owner:c.owner,amenity:c.amenity}));localStorage.setItem(KEY,JSON.stringify({v:5,money:state.money,day:state.day,pending:state.pending,goal:state.goal,over:state.over,events:state.events,rivalId:state.rivalId,cells:dyn}));}catch(e){}}
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(!s||s.v!==5)return false;cells=freshCells();const bi=new Map(cells.map(c=>[c.i,c]));(s.cells||[]).forEach(d=>{const c=bi.get(d.i);if(c){c.owner=d.owner;c.amenity=d.amenity;}});state={money:s.money,day:s.day,pending:s.pending,goal:s.goal,over:!!s.over,feed:[],events:s.events||[],rivalId:s.rivalId||PNJ[0].id};return true;}catch(e){return false;}}
+function save(){try{const dyn=cells.filter(c=>c.owner||c.amenity).map(c=>({i:c.i,owner:c.owner,amenity:c.amenity}));localStorage.setItem(KEY,JSON.stringify({v:5,money:state.money,day:state.day,pending:state.pending,goal:state.goal,over:state.over,events:state.events,lines:state.lines,rivalId:state.rivalId,cells:dyn}));}catch(e){}}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(!s||s.v!==5)return false;cells=freshCells();const bi=new Map(cells.map(c=>[c.i,c]));(s.cells||[]).forEach(d=>{const c=bi.get(d.i);if(c){c.owner=d.owner;c.amenity=d.amenity;}});state={money:s.money,day:s.day,pending:s.pending,goal:s.goal,over:!!s.over,feed:[],events:s.events||[],lines:s.lines||[],linkFrom:null,rivalId:s.rivalId||PNJ[0].id};return true;}catch(e){return false;}}
+// ===== Réseau de transport (graphe, lignes affichées seulement à la sélection) =====
+function recalcNetwork(){cells.forEach(c=>c.netMult=1);const parent={};const find=x=>{parent[x]=parent[x]??x;return parent[x]===x?x:(parent[x]=find(parent[x]));};const uni=(a,b)=>{parent[find(a)]=find(b);};const nodes=new Set();for(const [a,b] of (state.lines||[])){const ca=cells[a],cb=cells[b];if(ca&&cb&&ca.amenity&&ca.amenity.type==='TRANSPORT'&&cb.amenity&&cb.amenity.type==='TRANSPORT'){nodes.add(a);nodes.add(b);uni(a,b);}}const size={};nodes.forEach(n=>{const r=find(n);size[r]=(size[r]||0)+1;});nodes.forEach(n=>{cells[n].netMult=1+P.netStep*Math.min(size[find(n)]-1,P.netMax);});}
+function networkEdges(startIdx){const adj={};for(const [a,b] of state.lines){(adj[a]=adj[a]||[]).push(b);(adj[b]=adj[b]||[]).push(a);}const seen=new Set([startIdx]);const q=[startIdx];const edges=[];while(q.length){const x=q.pop();for(const y of (adj[x]||[])){if(!seen.has(y)){edges.push([x,y]);seen.add(y);q.push(y);}}}return edges;}
+function clearSelLines(){selLineLayer&&selLineLayer.clearLayers();}
+function drawSelLines(c){clearSelLines();if(!(c.amenity&&c.amenity.type==='TRANSPORT'))return;for(const [a,b] of networkEdges(c.i)){const ca=cells[a],cb=cells[b];if(ca&&cb)L.polyline([[ca.lat,ca.lon],[cb.lat,cb.lon]],{color:'#7fd1ff',weight:4,opacity:.9,dashArray:'2 7'}).addTo(selLineLayer);}}
+function showLinkbar(on){document.getElementById('linkbar').classList.toggle('show',on);}
+function startLink(i){state.linkFrom=cells[i];closeSheet();clearSelLines();showLinkbar(true);toast('🚇 Tape une autre de tes stations');}
+function tryConnect(a,b){if(a===b){toast('Même station');return;}const ok=x=>x.owner==='me'&&x.amenity&&x.amenity.type==='TRANSPORT';if(!ok(a)||!ok(b)){toast('Relie deux de TES stations 🚇');return;}if(state.lines.some(([x,y])=>(x===a.i&&y===b.i)||(x===b.i&&y===a.i))){toast('Déjà reliées');return;}state.lines.push([a.i,b.i]);recalcNetwork();toast('Ligne créée 🚇 — réseau renforcé');selected=a;renderSheet(a);sheet.classList.add('open');drawSelLines(a);syncHUD();redraw();save();}
 // ===== Événements de quartier (exogènes, valeur temporaire) =====
 function recomputeBoosts(){cells.forEach(c=>c.boost=1);for(const ev of state.events)for(const i of ev.cells){if(cells[i])cells[i].boost*=ev.factor;}}
 function expireEvents(){state.events=state.events.filter(ev=>ev.until>=state.day);}
@@ -127,7 +138,7 @@ function applyRandomEvent(){
 // ===== Éco (sur voisinage réel précalculé cell.nbr = [[index, kernel], ...]) =====
 function ownerKind(c){return c.owner==='me'?'HUMAN':(c.owner?'PNJ':null);}
 function hasSchoolAdj(c){return c.nbr.some(([j,k])=>k>=0.5&&cells[j].amenity&&cells[j].amenity.type==='ECOLE');}
-function contrib(a,c,k){let w=WEIGHT[a.type];if(w<=0)return 0;if(a.type==='COMMERCE'&&hasSchoolAdj(c))w*=P.commerceSchoolBonus;return w*k*lvlF(a.level);}
+function contrib(a,c,k){let w=WEIGHT[a.type];if(w<=0)return 0;if(a.type==='COMMERCE'&&hasSchoolAdj(c))w*=P.commerceSchoolBonus;if(a.type==='TRANSPORT')w*=(c.netMult||1);return w*k*lvlF(a.level);}
 function influence(c){
   let pnj=0,hum=0;
   if(c.amenity){const ct=contrib(c.amenity,c,1.0);if(ownerKind(c)==='PNJ')pnj+=ct;else hum+=ct;}
@@ -155,8 +166,8 @@ function createMap(){
   map=L.map('map',{zoomControl:false,attributionControl:true,preferCanvas:true}).setView(D.center,16);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
   L.control.zoom({position:'bottomright'}).addTo(map);
-  boardLayer=L.layerGroup().addTo(map);fxLayer=L.layerGroup().addTo(map);markerLayer=L.layerGroup().addTo(map);
-  map.on('click',()=>{selected=null;previewSet=null;closeSheet();redraw();});
+  boardLayer=L.layerGroup().addTo(map);selLineLayer=L.layerGroup().addTo(map);fxLayer=L.layerGroup().addTo(map);markerLayer=L.layerGroup().addTo(map);
+  map.on('click',()=>{if(state.linkFrom){state.linkFrom=null;showLinkbar(false);toast('Liaison annulée');return;}selected=null;previewSet=null;closeSheet();clearSelLines();redraw();});
 }
 function renderBoard(){
   boardLayer.clearLayers();markerLayer.clearLayers();
@@ -173,7 +184,7 @@ function pulse(c){c.layer.setStyle({color:'#ffe08a',weight:3.5});setTimeout(()=>
 // ===== Sheet / actions =====
 const sheet=document.getElementById('sheet');
 function closeSheet(){sheet.classList.remove('open');}
-function select(c){selected=c;previewSet=null;renderSheet(c);sheet.classList.add('open');redraw();}
+function select(c){if(state.linkFrom){const from=state.linkFrom;state.linkFrom=null;showLinkbar(false);tryConnect(from,c);return;}selected=c;previewSet=null;renderSheet(c);sheet.classList.add('open');drawSelLines(c);redraw();}
 function quartier(c){return c.near?('« '+c.near+' »'):('bâtiment '+c.cat);}
 function renderSheet(c){
   document.getElementById('sTitle').textContent=(c.amenity?EMOJI[c.amenity.type]+' ':'')+(c.near||'Bâtiment');
@@ -182,9 +193,11 @@ function renderSheet(c){
   let h=`<div class="kv"><span>Valeur actuelle</span><b>${Math.round(v)}</b></div>`;
   h+=`<div class="kv"><span>Propriétaire</span><b>${own?'<span class="tag" style="background:#143049;color:#3da5ff">TOI</span>':(pnjOwn?'<span class="tag" style="background:#3a1a24;color:#e0567a">@'+(PNJ.find(p=>p.id===c.owner)||{}).name+'</span>':'<span class="muted">libre</span>')}</b></div>`;
   if(c.amenity)h+=`<div class="kv"><span>Aménité</span><b>${EMOJI[c.amenity.type]} ${c.amenity.type.toLowerCase()} niv.${c.amenity.level}</b></div>`;
+  if(c.amenity&&c.amenity.type==='TRANSPORT'&&c.netMult>1)h+=`<div class="kv"><span>Réseau 🚇</span><b style="color:var(--metro)">+${Math.round((c.netMult-1)*100)}%</b></div>`;
   if(own){h+=`<div class="kv"><span>Rente / jour</span><b class="pos">+${(rentePerDay(v)+(c.amenity?builderOp(c.amenity)-maint(c.amenity):0)).toFixed(1)}</b></div>`;if(!c.amenity)h+=`<div class="kv"><span>Taxe friche / jour</span><b class="neg">-${fricheTax(c).toFixed(1)}</b></div>`;}
   h+=`<div class="row">`;
   if(!own){const cost=buyCost(c);h+=`<button class="btn primary" style="flex:1" ${state.money<cost?'disabled':''} onclick="buy(${c.i})">Acheter · ${cost} cr${pnjOwn?' (rachat)':''}</button>`;}
+  if(own&&c.amenity&&c.amenity.type==='TRANSPORT')h+=`<button class="btn metro" onclick="startLink(${c.i})">🚇 Relier</button>`;
   h+=`</div>`;
   if(own){h+=`<div class="sub" style="margin-top:6px">${c.amenity?'Améliorer (niveau '+(c.amenity.level+1)+')':'Construire / transformer'} — choisis pour voir l'aperçu d'impact :</div><div class="types" id="types"></div><div id="previewInfo" class="hint"></div><div class="row"><button class="btn primary" id="buildBtn" style="flex:1" disabled>Choisis une aménité</button></div>`;}
   document.getElementById('sBody').innerHTML=h;
@@ -216,7 +229,7 @@ let toastT;function toast(m){const t=document.getElementById('toast');t.textCont
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function endSeason(){state.over=true;const emp=empireValue();const win=emp>=state.goal;const score=emp+Math.round(state.money+state.pending);document.getElementById('seTitle').textContent=win?'🏆 Objectif atteint !':'Saison terminée';document.getElementById('seBody').innerHTML=`Empire final : <b>${emp}</b> · Score (empire + crédits) : <b>${score}</b>.<br>${win?'Tu as transformé ton coin de Metz. Prestige conservé pour la prochaine saison.':'Pas tout à fait l\'objectif — mais le quartier a changé grâce à toi. Réessaie !'}`;document.getElementById('seasonEnd').classList.add('open');save();}
 function restart(){newGame();}
-function newGame(){try{localStorage.removeItem(KEY);}catch(e){}document.getElementById('seasonEnd').classList.remove('open');selected=null;previewSet=null;closeSheet();init();renderBoard();syncHUD();save();toast('Nouvelle partie');}
+function newGame(){try{localStorage.removeItem(KEY);}catch(e){}document.getElementById('seasonEnd').classList.remove('open');selected=null;previewSet=null;closeSheet();init();recomputeBoosts();recalcNetwork();renderBoard();clearSelLines();syncHUD();save();toast('Nouvelle partie');}
 function closeOnboard(){document.getElementById('onboard').classList.remove('open');setTimeout(()=>map.invalidateSize(),100);}
 document.getElementById('menuBtn').onclick=()=>{if(confirm('Nouvelle partie ? La progression actuelle sera perdue.'))newGame();};
 
@@ -225,6 +238,7 @@ createMap();
 const loaded=load();
 if(!loaded)init();
 recomputeBoosts();
+recalcNetwork();
 renderBoard();
 syncHUD();
 if(loaded){toast('Partie reprise · jour '+state.day);}else{document.getElementById('onboard').classList.add('open');}
