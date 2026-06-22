@@ -44,6 +44,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
 <script>
 const API='https://cadastria-api.jixter.fr/api';
+const PID=localStorage.getItem('cadastria_pid')||(()=>{const v='p-'+Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('cadastria_pid',v);return v;})();
 const EMOJI={RESIDENTIEL:'🏠',COMMERCE:'🏪',ECOLE:'🏫',PARC:'🌳',TRANSPORT:'🚇'};
 const TYPES=['COMMERCE','ECOLE','PARC','TRANSPORT','RESIDENTIEL'];
 let map,layer,markers,cells=[],byCell={},selected=null;
@@ -51,7 +52,7 @@ let map,layer,markers,cells=[],byCell={},selected=null;
 function valColor(v,socle){const r=Math.max(0,Math.min(1,(v-50)/200));const st=[[44,70,110],[40,120,90],[70,180,95],[200,190,80],[255,207,92]];const t=r*(st.length-1),i=Math.floor(t),f=t-i,a=st[i],b=st[Math.min(i+1,st.length-1)];return`rgb(${a[0]+(b[0]-a[0])*f|0},${a[1]+(b[1]-a[1])*f|0},${a[2]+(b[2]-a[2])*f|0})`;}
 function style(c){let color='#5a6b7a',w=1;if(c.owner==='me'){color='#3da5ff';w=2.5;}else if(c.owner){color='#e0567a';w=2;}if(selected&&selected.cell===c.cell){color='#fff';w=3.5;}return{color,weight:w,fillColor:valColor(c.value,c.socle),fillOpacity:.62,opacity:.95};}
 
-async function api(path,method){const r=await fetch(API+path,{method:method||'GET',headers:{'Content-Type':'application/json'},body:method==='POST'&&arguments[2]?JSON.stringify(arguments[2]):undefined});if(!r.ok){let m='erreur';try{m=(await r.json()).message||m;}catch(e){}throw new Error(m);}return r.json();}
+async function api(path,method){const r=await fetch(API+path,{method:method||'GET',headers:{'Content-Type':'application/json','X-Player-Id':PID},body:method==='POST'&&arguments[2]?JSON.stringify(arguments[2]):undefined});if(!r.ok){let m='erreur';try{m=(await r.json()).message||m;}catch(e){}throw new Error(m);}return r.json();}
 
 async function loadWorld(){
   cells=await api('/world');byCell={};cells.forEach(c=>byCell[c.cell]=c);
