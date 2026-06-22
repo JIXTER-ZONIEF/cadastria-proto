@@ -21,7 +21,7 @@
   #season{position:fixed;top:54px;left:0;right:0;z-index:500;display:flex;justify-content:center;pointer-events:none}
   #season .pill{background:#1a2129dd;border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:11px;color:var(--dim)}
   #season b{color:var(--gold)}
-  .amico{font-size:18px;text-align:center;line-height:1;text-shadow:0 1px 2px #000a;pointer-events:none}
+  .amico{font-size:16px;text-align:center;line-height:1;text-shadow:0 1px 2px #000a;pointer-events:none}
   .floatfx{font-weight:800;font-size:13px;color:#ffe08a;text-shadow:0 1px 3px #000;animation:rise .9s ease-out forwards;pointer-events:none;white-space:nowrap}
   @keyframes rise{from{transform:translateY(0);opacity:1}to{transform:translateY(-28px);opacity:0}}
   #sheet{position:fixed;left:0;right:0;bottom:0;z-index:700;background:var(--panel);border-top:1px solid var(--line);border-radius:16px 16px 0 0;padding:14px 14px 18px;transform:translateY(110%);transition:transform .22s ease;max-height:72vh;overflow:auto}
@@ -54,19 +54,19 @@
 <div id="season"><div class="pill">Saison 1 · Jour <b id="day">1</b>/30 · Objectif empire <b id="goal">5000</b></div></div>
 <div id="toast"></div>
 
-<div id="sheet"><h3 id="sTitle">Cellule</h3><div class="sub" id="sSub"></div><div id="sBody"></div></div>
+<div id="sheet"><h3 id="sTitle">Bâtiment</h3><div class="sub" id="sSub"></div><div id="sBody"></div></div>
 
 <div class="modal" id="feedModal"><div class="card"><h2>🌙 Pendant ton absence</h2><div class="muted" id="feedDay"></div><ul class="feed" id="feedList"></ul><div class="row"><button class="btn primary" style="flex:1" onclick="closeFeed()">Continuer</button></div></div></div>
 
 <div class="modal open" id="onboard"><div class="card">
   <h2>Cadastria · Metz 🗺️</h2>
-  <p class="big">Tu joues sur la <b>vraie carte de Metz</b>. Chaque hexagone vaut quelque chose selon <b>ce qu'il y a autour</b>. Construis, et regarde le quartier réagir.</p>
-  <div class="step"><div class="n">1</div><div><b>Achète</b> un hexagone (tape dessus). Vise les zones bien placées (plus claires).</div></div>
-  <div class="step"><div class="n">2</div><div><b>Construis</b> une aménité. Tu vois <b>en avance</b> quels voisins vont prendre de la valeur.</div></div>
-  <div class="step"><div class="n">3</div><div>Ça <b>valorise les voisins</b> — les tiens <i>et</i> ceux de Karim, Sophie & co. Eux aussi construisent : reviens voir.</div></div>
+  <p class="big">Tu joues sur les <b>vrais bâtiments de Metz</b> (données OpenStreetMap). Chaque bâtiment vaut quelque chose selon <b>ce qu'il y a autour</b>. Achète, construis, transforme ton quartier.</p>
+  <div class="step"><div class="n">1</div><div><b>Achète</b> un bâtiment (tape dessus). Vise les zones bien placées (plus claires).</div></div>
+  <div class="step"><div class="n">2</div><div><b>Construis/transforme</b>. Tu vois <b>en avance</b> quels bâtiments voisins vont prendre de la valeur.</div></div>
+  <div class="step"><div class="n">3</div><div>Ça <b>valorise les voisins</b> — les tiens <i>et</i> ceux de Karim, Sophie & co. Eux aussi agissent : reviens voir.</div></div>
   <div class="step"><div class="n">4</div><div><b>Perçois</b> ta rente, fais grossir ton empire. Objectif : 5000 en 30 jours.</div></div>
   <div class="row"><button class="btn primary" style="flex:1" onclick="closeOnboard()">Jouer</button></div>
-  <div class="hint center">Prototype · valeurs de jeu (pas les vrais prix) · fond © OpenStreetMap</div>
+  <div class="hint center">Prototype · valeurs de jeu (pas les vrais prix) · bâtiments © OpenStreetMap</div>
 </div></div>
 
 <div class="modal" id="seasonEnd"><div class="card center"><h2 id="seTitle">Fin de saison</h2><div class="big" id="seBody"></div><div class="row"><button class="btn primary" style="flex:1" onclick="restart()">Rejouer</button></div></div></div>
@@ -75,37 +75,39 @@
 <script src="data.js"></script>
 <script>
 // ===== Paramètres éco (miroir du futur cadastria-econ-core) =====
-const P={multMax:2.5,k:6,pnjInflCap:4.5,totalInflCap:8,commerceSchoolBonus:2.0,captureBare:0.30,captureBuilt:1.0,builderBonus:1.3,renteRate:0.05,renteExp:0.8,offlineCapDays:1,fricheTaxRate:0.03,maintRate:0.10,buildBase:50,buildDens:10,pnjBuyMarkup:1.15};
+const P={multMax:2.5,k:6,pnjInflCap:4.5,totalInflCap:8,commerceSchoolBonus:2.0,captureBare:0.30,captureBuilt:1.0,builderBonus:1.3,renteRate:0.05,renteExp:0.8,fricheTaxRate:0.03,maintRate:0.10,buildBase:50,buildDens:10,pnjBuyMarkup:1.15};
 const WEIGHT={RESIDENTIEL:0,COMMERCE:1,ECOLE:1,PARC:1.5,TRANSPORT:2};
 const OP={RESIDENTIEL:2,COMMERCE:5,ECOLE:3,PARC:3,TRANSPORT:4};
 const EMOJI={RESIDENTIEL:'🏠',COMMERCE:'🏪',ECOLE:'🏫',PARC:'🌳',TRANSPORT:'🚇'};
 const PNJ=[{id:'p0',name:'Karim',c:'#e0567a'},{id:'p1',name:'Sophie',c:'#37c878'},{id:'p2',name:'Léa',c:'#d79a23'},{id:'p3',name:'Marc',c:'#9b6cf0'},{id:'p4',name:'Nadia',c:'#2b9fd1'}];
 function lvlF(l){return l<=1?1:(l===2?1.5:1.8);}
-function kernel(d){return d===0?1:(d===1?0.5:(d===2?0.25:0));}
 
 const D=window.METZ_DATA;
-let cells,byKey,state,map,fxLayer,markerLayer;
-function key(q,r){return q+','+r;}
-function hexDist(a,b){const ax=a.q,az=a.r,ay=-ax-az;const bx=b.q,bz=b.r,by=-bx-bz;return(Math.abs(ax-bx)+Math.abs(ay-by)+Math.abs(az-bz))/2;}
-function disk(c,rad){const o=[];for(let dq=-rad;dq<=rad;dq++){for(let dr=Math.max(-rad,-dq-rad);dr<=Math.min(rad,-dq+rad);dr++){const k=byKey.get(key(c.q+dq,c.r+dr));if(k)o.push(k);}}return o;}
+let cells,state,map,fxLayer,markerLayer;
+function gdist(a,b){return Math.hypot((a.lat-b.lat)*111320,(a.lon-b.lon)*111320*Math.cos(a.lat*Math.PI/180));}
 
 function init(){
-  cells=D.cells.map(c=>({...c,owner:null,amenity:null,poly:null,marker:null}));
-  byKey=new Map();cells.forEach(c=>byKey.set(key(c.q,c.r),c));
+  cells=D.cells.map(c=>({...c,owner:null,amenity:null,layer:null,marker:null}));
   state={money:1500,day:1,pending:0,goal:5000,feed:[],over:false};
   seedPNJ();
   state.feed=[{t:'Le quartier est déjà animé : '+PNJ[0].name+', '+PNJ[1].name+' et '+PNJ[2].name+' y ont investi.',cls:'muted'}];
 }
 function seedPNJ(){
-  const hot=cells.filter(c=>c.socle>=95).sort((a,b)=>b.socle-a.socle);const pick=[];const used=[];
-  for(const c of hot){if(pick.length>=16)break;if(used.some(u=>hexDist(u,c)<=1))continue;pick.push(c);used.push(c);}
+  const hot=cells.filter(c=>c.socle>=88).sort((a,b)=>b.socle-a.socle);const pick=[];
+  for(const c of hot){if(pick.length>=18)break;if(pick.some(u=>gdist(u,c)<70))continue;pick.push(c);}
   pick.forEach((c,i)=>{const p=PNJ[i%PNJ.length];c.owner=p.id;const t=c.cat==='transport'?'TRANSPORT':c.cat==='parc'?'PARC':c.cat==='ecole'?'ECOLE':'COMMERCE';c.amenity={type:t,level:1+(Math.random()<0.3?1:0),by:p.id};});
 }
 
-// ===== Éco =====
+// ===== Éco (sur voisinage réel précalculé cell.nbr = [[index, kernel], ...]) =====
 function ownerKind(c){return c.owner==='me'?'HUMAN':(c.owner?'PNJ':null);}
-function hasSchoolAdj(c){return disk(c,1).some(n=>n!==c&&n.amenity&&n.amenity.type==='ECOLE');}
-function influence(c){let pnj=0,hum=0;for(const n of disk(c,2)){const a=n.amenity;if(!a)continue;let w=WEIGHT[a.type];if(w<=0)continue;if(a.type==='COMMERCE'&&hasSchoolAdj(n))w*=P.commerceSchoolBonus;const ct=w*kernel(hexDist(c,n))*lvlF(a.level);if(ownerKind(n)==='PNJ')pnj+=ct;else hum+=ct;}pnj=Math.min(pnj,P.pnjInflCap);return Math.min(pnj+hum,P.totalInflCap);}
+function hasSchoolAdj(c){return c.nbr.some(([j,k])=>k>=0.5&&cells[j].amenity&&cells[j].amenity.type==='ECOLE');}
+function contrib(a,c,k){let w=WEIGHT[a.type];if(w<=0)return 0;if(a.type==='COMMERCE'&&hasSchoolAdj(c))w*=P.commerceSchoolBonus;return w*k*lvlF(a.level);}
+function influence(c){
+  let pnj=0,hum=0;
+  if(c.amenity){const ct=contrib(c.amenity,c,1.0);if(ownerKind(c)==='PNJ')pnj+=ct;else hum+=ct;}
+  for(const [j,k] of c.nbr){const o=cells[j];if(!o.amenity)continue;const ct=contrib(o.amenity,o,k);if(ownerKind(o)==='PNJ')pnj+=ct;else hum+=ct;}
+  pnj=Math.min(pnj,P.pnjInflCap);return Math.min(pnj+hum,P.totalInflCap);
+}
 function collMult(c){return P.multMax*Math.tanh(influence(c)/P.k);}
 function value(c){const cap=c.amenity?P.captureBuilt:P.captureBare;return Math.min(c.socle*(1+cap*collMult(c)),c.socle*(1+P.multMax));}
 function rentePerDay(v){return P.renteRate*Math.pow(v,P.renteExp);}
@@ -113,39 +115,39 @@ function builderOp(a){return OP[a.type]*lvlF(a.level)*P.builderBonus;}
 function maint(a){return P.maintRate*OP[a.type]*lvlF(a.level);}
 function fricheTax(c){return P.fricheTaxRate*c.socle;}
 function buyCost(c){return Math.round(value(c)*(c.owner&&c.owner!=='me'?P.pnjBuyMarkup:1));}
-function buildCost(c,level){const d=disk(c,2).filter(n=>n.amenity).length;return Math.round((P.buildBase+P.buildDens*d)*lvlF(level));}
+function buildCost(c,level){const d=c.nbr.filter(([j])=>cells[j].amenity).length;return Math.round((P.buildBase+P.buildDens*d)*lvlF(level));}
+function affected(c){const a=[c];for(const [j] of c.nbr)a.push(cells[j]);return a;}
 function myCells(){return cells.filter(c=>c.owner==='me');}
 function empireValue(){return Math.round(myCells().reduce((s,c)=>s+value(c),0));}
 function dailyNet(){let s=0;for(const c of myCells()){const v=value(c);if(c.amenity)s+=rentePerDay(v)+builderOp(c.amenity)-maint(c.amenity);else s+=rentePerDay(v)-fricheTax(c);}return s;}
 
-// ===== Carte Leaflet =====
-function hexCorners(lat,lon){const out=[];const mlat=111320,mlon=111320*Math.cos(lat*Math.PI/180);for(let i=0;i<6;i++){const a=Math.PI/180*(60*i-30);out.push([lat+(D.size*Math.sin(a))/mlat, lon+(D.size*Math.cos(a))/mlon]);}return out;}
+// ===== Carte Leaflet (vrais bâtiments OSM) =====
 function valColor(c){const v=value(c);const r=Math.max(0,Math.min(1,(v-50)/200));const st=[[44,70,110],[40,120,90],[70,180,95],[200,190,80],[255,207,92]];const t=r*(st.length-1);const i=Math.floor(t),f=t-i;const a=st[i],b=st[Math.min(i+1,st.length-1)];return`rgb(${a[0]+(b[0]-a[0])*f|0},${a[1]+(b[1]-a[1])*f|0},${a[2]+(b[2]-a[2])*f|0})`;}
 let selected=null,previewSet=null;
-function styleFor(c){let color='#5a6b7a',weight=1,dash=null;if(c.owner==='me'){color='#3da5ff';weight=3;}else if(c.owner){color=(PNJ.find(p=>p.id===c.owner)||{}).c;weight=2.4;}if(previewSet&&previewSet.has(c)){color='#ffffff';weight=3;dash='4';}if(selected===c){color='#ffffff';weight=4;}return{color,weight,dashArray:dash,fillColor:valColor(c),fillOpacity:0.55,opacity:0.9};}
+function styleFor(c){let color='#5a6b7a',weight=1,dash=null;if(c.owner==='me'){color='#3da5ff';weight=2.5;}else if(c.owner){color=(PNJ.find(p=>p.id===c.owner)||{}).c;weight=2;}if(previewSet&&previewSet.has(c)){color='#ffffff';weight=2.5;dash='3';}if(selected===c){color='#ffffff';weight=3.5;}return{color,weight,dashArray:dash,fillColor:valColor(c),fillOpacity:0.62,opacity:0.95};}
 function setupMap(){
-  map=L.map('map',{zoomControl:false,attributionControl:true}).setView(D.center,15);
+  map=L.map('map',{zoomControl:false,attributionControl:true,preferCanvas:true}).setView(D.center,16);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
   L.control.zoom({position:'bottomright'}).addTo(map);
   fxLayer=L.layerGroup().addTo(map);markerLayer=L.layerGroup().addTo(map);
   const grp=L.featureGroup();
-  for(const c of cells){const poly=L.polygon(hexCorners(c.lat,c.lon),styleFor(c));poly.on('click',e=>{L.DomEvent.stop(e);select(c);});poly.addTo(map);c.poly=poly;grp.addLayer(poly);}
-  map.fitBounds(grp.getBounds().pad(0.05));
+  for(const c of cells){const layer=L.polygon(c.poly,styleFor(c));layer.on('click',e=>{L.DomEvent.stop(e);select(c);});layer.addTo(map);c.layer=layer;grp.addLayer(layer);}
+  map.fitBounds(grp.getBounds().pad(0.04));
   map.on('click',()=>{selected=null;previewSet=null;closeSheet();redraw();});
   cells.forEach(refreshMarker);
 }
-function refreshMarker(c){if(c.marker){markerLayer.removeLayer(c.marker);c.marker=null;}if(c.amenity){c.marker=L.marker([c.lat,c.lon],{interactive:false,icon:L.divIcon({className:'',html:`<div class="amico">${EMOJI[c.amenity.type]}</div>`,iconSize:[22,22]})}).addTo(markerLayer);}}
-function redraw(){for(const c of cells)c.poly.setStyle(styleFor(c));}
+function refreshMarker(c){if(c.marker){markerLayer.removeLayer(c.marker);c.marker=null;}if(c.amenity){c.marker=L.marker([c.lat,c.lon],{interactive:false,icon:L.divIcon({className:'',html:`<div class="amico">${EMOJI[c.amenity.type]}</div>`,iconSize:[18,18]})}).addTo(markerLayer);}}
+function redraw(){for(const c of cells)c.layer.setStyle(styleFor(c));}
 function floatFx(c,txt){const m=L.marker([c.lat,c.lon],{interactive:false,icon:L.divIcon({className:'',html:`<div class="floatfx">${txt}</div>`,iconSize:[10,10]})}).addTo(fxLayer);setTimeout(()=>fxLayer.removeLayer(m),900);}
-function pulse(c){const before=c.poly.options;c.poly.setStyle({color:'#ffe08a',weight:4});setTimeout(()=>c.poly.setStyle(styleFor(c)),650);}
+function pulse(c){c.layer.setStyle({color:'#ffe08a',weight:3.5});setTimeout(()=>c.layer.setStyle(styleFor(c)),650);}
 
 // ===== Sheet / actions =====
 const sheet=document.getElementById('sheet');
 function closeSheet(){sheet.classList.remove('open');}
 function select(c){selected=c;previewSet=null;renderSheet(c);sheet.classList.add('open');redraw();}
-function quartier(c){return c.near?('près de '+c.near):('quartier '+c.cat);}
+function quartier(c){return c.near?('« '+c.near+' »'):('bâtiment '+c.cat);}
 function renderSheet(c){
-  document.getElementById('sTitle').textContent=(c.amenity?EMOJI[c.amenity.type]+' ':'')+(c.near||('Parcelle '+c.cat));
+  document.getElementById('sTitle').textContent=(c.amenity?EMOJI[c.amenity.type]+' ':'')+(c.near||'Bâtiment');
   document.getElementById('sSub').textContent=quartier(c)+' · socle '+c.socle;
   const v=value(c),own=c.owner==='me',pnjOwn=c.owner&&!own;
   let h=`<div class="kv"><span>Valeur actuelle</span><b>${Math.round(v)}</b></div>`;
@@ -153,25 +155,25 @@ function renderSheet(c){
   if(c.amenity)h+=`<div class="kv"><span>Aménité</span><b>${EMOJI[c.amenity.type]} ${c.amenity.type.toLowerCase()} niv.${c.amenity.level}</b></div>`;
   if(own){h+=`<div class="kv"><span>Rente / jour</span><b class="pos">+${(rentePerDay(v)+(c.amenity?builderOp(c.amenity)-maint(c.amenity):0)).toFixed(1)}</b></div>`;if(!c.amenity)h+=`<div class="kv"><span>Taxe friche / jour</span><b class="neg">-${fricheTax(c).toFixed(1)}</b></div>`;}
   h+=`<div class="row">`;
-  if(!own){const cost=buyCost(c);h+=`<button class="btn primary" style="flex:1" ${state.money<cost?'disabled':''} onclick="buy('${key(c.q,c.r)}')">Acheter · ${cost} cr${pnjOwn?' (rachat)':''}</button>`;}
+  if(!own){const cost=buyCost(c);h+=`<button class="btn primary" style="flex:1" ${state.money<cost?'disabled':''} onclick="buy(${c.i})">Acheter · ${cost} cr${pnjOwn?' (rachat)':''}</button>`;}
   h+=`</div>`;
-  if(own){h+=`<div class="sub" style="margin-top:6px">${c.amenity?'Améliorer (niveau '+(c.amenity.level+1)+')':'Construire une aménité'} — choisis pour voir l'aperçu d'impact :</div><div class="types" id="types"></div><div id="previewInfo" class="hint"></div><div class="row"><button class="btn primary" id="buildBtn" style="flex:1" disabled>Choisis une aménité</button></div>`;}
+  if(own){h+=`<div class="sub" style="margin-top:6px">${c.amenity?'Améliorer (niveau '+(c.amenity.level+1)+')':'Construire / transformer'} — choisis pour voir l'aperçu d'impact :</div><div class="types" id="types"></div><div id="previewInfo" class="hint"></div><div class="row"><button class="btn primary" id="buildBtn" style="flex:1" disabled>Choisis une aménité</button></div>`;}
   document.getElementById('sBody').innerHTML=h;
   if(own)renderTypes(c);
 }
 function renderTypes(c){const td=document.getElementById('types');const lvl=c.amenity?c.amenity.level+1:1;const types=c.amenity?[c.amenity.type]:['COMMERCE','ECOLE','PARC','TRANSPORT','RESIDENTIEL'];
   td.innerHTML=types.map(t=>`<div class="typ" data-t="${t}"><span class="e">${EMOJI[t]}</span>${t.slice(0,5).toLowerCase()}</div>`).join('');
   td.querySelectorAll('.typ').forEach(el=>el.onclick=()=>{td.querySelectorAll('.typ').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');preview(c,el.dataset.t,lvl);});}
-function preview(c,t,lvl){const aff=disk(c,2);const before=new Map();aff.forEach(n=>before.set(n,value(n)));const old=c.amenity;c.amenity={type:t,level:lvl,by:'me'};previewSet=new Set();let mineGain=0;aff.forEach(n=>{const d=value(n)-before.get(n);if(d>0.5){previewSet.add(n);if(n.owner==='me'||n===c)mineGain+=d;}});c.amenity=old;const cost=buildCost(c,lvl);document.getElementById('previewInfo').innerHTML=`Coût ${cost} cr · ${previewSet.size} hex voisin(s) valorisé(s)${mineGain>0?' · <span class="pos">+'+Math.round(mineGain)+' sur tes biens</span>':''}`;const bb=document.getElementById('buildBtn');bb.disabled=state.money<cost;bb.textContent=(c.amenity?'Améliorer':'Construire')+' '+EMOJI[t]+' · '+cost+' cr';bb.onclick=()=>build(c,t,lvl,cost);redraw();}
 function valueWithout(n,c,oldA){const cur=c.amenity;c.amenity=oldA;const v=value(n);c.amenity=cur;return v;}
-function build(c,t,lvl,cost){if(state.money<cost)return;state.money-=cost;const old=c.amenity;c.amenity={type:t,level:lvl,by:'me'};const aff=disk(c,2);aff.forEach(n=>{const bef=valueWithout(n,c,old);const aft=value(n);const d=aft-bef;if(d>0.5){pulse(n);floatFx(n,'+'+Math.round(d/bef*100)+'%');}});refreshMarker(c);pulse(c);toast(lvl>1?'Amélioré !':'Construit ! Le quartier réagit.');previewSet=null;syncHUD();renderSheet(c);redraw();}
-function buy(k){const c=byKey.get(k);const cost=buyCost(c);if(state.money<cost)return;state.money-=cost;c.owner='me';if(c.amenity)c.amenity.by='me';toast('Acquis · '+(c.near||c.cat));syncHUD();renderSheet(c);redraw();}
+function preview(c,t,lvl){const aff=affected(c);const before=new Map();aff.forEach(n=>before.set(n,value(n)));const old=c.amenity;c.amenity={type:t,level:lvl,by:'me'};previewSet=new Set();let mineGain=0;aff.forEach(n=>{const d=value(n)-before.get(n);if(d>0.5){previewSet.add(n);if(n.owner==='me'||n===c)mineGain+=d;}});c.amenity=old;const cost=buildCost(c,lvl);document.getElementById('previewInfo').innerHTML=`Coût ${cost} cr · ${previewSet.size} bâtiment(s) voisin(s) valorisé(s)${mineGain>0?' · <span class="pos">+'+Math.round(mineGain)+' sur tes biens</span>':''}`;const bb=document.getElementById('buildBtn');bb.disabled=state.money<cost;bb.textContent=(c.amenity?'Améliorer':'Construire')+' '+EMOJI[t]+' · '+cost+' cr';bb.onclick=()=>build(c,t,lvl,cost);redraw();}
+function build(c,t,lvl,cost){if(state.money<cost)return;state.money-=cost;const old=c.amenity;c.amenity={type:t,level:lvl,by:'me'};affected(c).forEach(n=>{if(n===c)return;const bef=valueWithout(n,c,old);const aft=value(n);const d=aft-bef;if(d>0.5){pulse(n);floatFx(n,'+'+Math.round(d/bef*100)+'%');}});refreshMarker(c);pulse(c);toast(lvl>1?'Amélioré !':'Construit ! Le quartier réagit.');previewSet=null;syncHUD();renderSheet(c);redraw();}
+function buy(i){const c=cells[i];const cost=buyCost(c);if(state.money<cost)return;state.money-=cost;c.owner='me';if(c.amenity)c.amenity.by='me';toast('Acquis · '+(c.near||c.cat));syncHUD();renderSheet(c);redraw();}
 
 // ===== Tour / PNJ / feed =====
 function nextDay(){if(state.over)return;state.pending+=dailyNet();state.day++;const feed=[];const actors=shuffle(PNJ.slice()).slice(0,2);for(const p of actors)pnjAct(p,feed);if(!feed.length)feed.push({t:'Nuit calme dans le quartier.',cls:'muted'});state.feed=feed;showFeed();syncHUD();if(state.day>30||empireValue()>=state.goal)endSeason();}
 function snapshot(arr){const m=new Map();arr.forEach(c=>m.set(c,value(c)));return m;}
-function pnjAct(p,feed){const mine=myCells();const own=cells.filter(c=>c.owner===p.id&&c.amenity&&c.amenity.level<3);if(own.length&&Math.random()<0.5){const t=own[Math.floor(Math.random()*own.length)];const before=snapshot(mine);t.amenity.level++;refreshMarker(t);feedDelta(p,t,before,mine,feed,'a agrandi son '+t.amenity.type.toLowerCase());redraw();return;}const free=cells.filter(c=>!c.owner).sort((a,b)=>b.socle-a.socle);const tg=free[Math.floor(Math.random()*Math.min(8,free.length))];if(!tg)return;tg.owner=p.id;const ty=tg.cat==='transport'?'TRANSPORT':tg.cat==='parc'?'PARC':tg.cat==='ecole'?'ECOLE':'COMMERCE';const before=snapshot(mine);tg.amenity={type:ty,level:1,by:p.id};refreshMarker(tg);feedDelta(p,tg,before,mine,feed,'a construit un '+ty.toLowerCase());redraw();}
-function feedDelta(p,target,before,mine,feed,act){let touched=0,bestc=null,bestd=0;mine.forEach(c=>{const d=value(c)-before.get(c);if(d>0.5){touched++;if(d>bestd){bestd=d;bestc=c;}}});if(touched>0){const pct=Math.round(bestd/(value(bestc)-bestd)*100);feed.push({t:`${EMOJI[target.amenity.type]} <b>@${p.name}</b> ${act} ${target.near?('('+target.near+')'):''} → ton bien ${bestc.near?('près de '+bestc.near):''} <span class="amt pos">+${pct>0?pct:1}%</span>${touched>1?' (+'+(touched-1)+' autres)':''}`,cls:''});}else{feed.push({t:`<b>@${p.name}</b> ${act} ${target.near?('('+target.near+')'):'dans le quartier'}.`,cls:'muted'});}}
+function pnjAct(p,feed){const mine=myCells();const own=cells.filter(c=>c.owner===p.id&&c.amenity&&c.amenity.level<3);if(own.length&&Math.random()<0.5){const t=own[Math.floor(Math.random()*own.length)];const before=snapshot(mine);t.amenity.level++;refreshMarker(t);feedDelta(p,t,before,mine,feed,'a agrandi son '+t.amenity.type.toLowerCase());redraw();return;}const free=cells.filter(c=>!c.owner).sort((a,b)=>b.socle-a.socle);const tg=free[Math.floor(Math.random()*Math.min(12,free.length))];if(!tg)return;tg.owner=p.id;const ty=tg.cat==='transport'?'TRANSPORT':tg.cat==='parc'?'PARC':tg.cat==='ecole'?'ECOLE':'COMMERCE';const before=snapshot(mine);tg.amenity={type:ty,level:1,by:p.id};refreshMarker(tg);feedDelta(p,tg,before,mine,feed,'a construit un '+ty.toLowerCase());redraw();}
+function feedDelta(p,target,before,mine,feed,act){let touched=0,bestc=null,bestd=0;mine.forEach(c=>{const d=value(c)-before.get(c);if(d>0.5){touched++;if(d>bestd){bestd=d;bestc=c;}}});if(touched>0){const pct=Math.round(bestd/(value(bestc)-bestd)*100);feed.push({t:`${EMOJI[target.amenity.type]} <b>@${p.name}</b> ${act} ${target.near?('('+target.near+')'):''} → ton bien ${bestc.near?('« '+bestc.near+' »'):''} <span class="amt pos">+${pct>0?pct:1}%</span>${touched>1?' (+'+(touched-1)+' autres)':''}`,cls:''});}else{feed.push({t:`<b>@${p.name}</b> ${act} ${target.near?('('+target.near+')'):'dans le quartier'}.`,cls:'muted'});}}
 function showFeed(){document.getElementById('feedDay').textContent='Jour '+state.day;document.getElementById('feedList').innerHTML=state.feed.map(f=>`<li class="${f.cls}">${f.t}</li>`).join('');document.getElementById('feedModal').classList.add('open');}
 function closeFeed(){document.getElementById('feedModal').classList.remove('open');}
 
@@ -182,7 +184,7 @@ document.getElementById('nextDay').onclick=nextDay;
 let toastT;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function endSeason(){state.over=true;const win=empireValue()>=state.goal;document.getElementById('seTitle').textContent=win?'🏆 Objectif atteint !':'Saison terminée';document.getElementById('seBody').innerHTML=`Empire final : <b>${empireValue()}</b>.<br>${win?'Tu as transformé ton coin de Metz. Prestige conservé pour la saison 2.':'Pas tout à fait l\'objectif — mais le quartier a changé grâce à toi.'}`;document.getElementById('seasonEnd').classList.add('open');}
-function restart(){document.getElementById('seasonEnd').classList.remove('open');markerLayer.clearLayers();cells.forEach(c=>{if(c.poly)map.removeLayer(c.poly);});init();setupMap();syncHUD();}
+function restart(){document.getElementById('seasonEnd').classList.remove('open');markerLayer.clearLayers();cells.forEach(c=>{if(c.layer)map.removeLayer(c.layer);});init();setupMap();syncHUD();}
 function closeOnboard(){document.getElementById('onboard').classList.remove('open');setTimeout(()=>map.invalidateSize(),100);}
 
 // ===== Boot =====
