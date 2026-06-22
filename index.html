@@ -76,7 +76,7 @@
   <div class="grow"></div>
   <button class="btn primary" id="nextDay">Jour +</button>
 </div>
-<div id="season"><div class="pill">Saison 1 · Jour <b id="day">1</b>/30 · Empire <b id="empireGoal">0</b>/<b id="goal">4600</b></div></div>
+<div id="season"><div class="pill">Saison 1 · Jour <b id="day">1</b>/30 · Empire <b id="empireGoal">0</b>/<b id="goal">5900</b></div></div>
 <div id="progress"><div id="progressFill"></div></div>
 <div id="linkbar">🚇 Tape une autre de tes stations pour relier — ou la carte pour annuler</div>
 <button class="fab" id="locate" title="Centrer sur mes biens">📍</button>
@@ -98,7 +98,7 @@
   <div class="step"><div class="n">1</div><div><b>Achète</b> un bâtiment (tape dessus). Vise les zones bien placées (plus claires).</div></div>
   <div class="step"><div class="n">2</div><div><b>Construis/transforme</b>. Tu vois <b>en avance</b> quels bâtiments voisins vont prendre de la valeur.</div></div>
   <div class="step"><div class="n">3</div><div>Ça <b>valorise les voisins</b> — les tiens <i>et</i> ceux de Karim, Sophie & co. Eux aussi agissent : reviens voir.</div></div>
-  <div class="step"><div class="n">4</div><div><b>Perçois</b> ta rente, fais grossir ton empire. Objectif : 4600 en 30 jours.</div></div>
+  <div class="step"><div class="n">4</div><div><b>Perçois</b> ta rente, fais grossir ton empire. Objectif : 5900 en 30 jours.</div></div>
   <div class="row"><button class="btn primary" style="flex:1" onclick="closeOnboard()">Jouer</button></div>
   <div class="hint center">Prototype · valeurs de jeu (pas les vrais prix) · bâtiments © OpenStreetMap</div>
 </div></div>
@@ -125,7 +125,7 @@ function pnjName(id){const p=PNJ.find(x=>x.id===id);return p?p.name:id;}
 
 function init(){
   cells=freshCells();
-  state={money:1500,day:1,pending:0,goal:4600,feed:[],over:false,events:[],lines:[],offers:[],linkFrom:null,tutDone:false,rivalId:PNJ[Math.floor(Math.random()*PNJ.length)].id};
+  state={money:1500,day:1,pending:0,goal:5900,feed:[],over:false,events:[],lines:[],offers:[],linkFrom:null,tutDone:false,rivalId:PNJ[Math.floor(Math.random()*PNJ.length)].id};
   seedPNJ();
   state.contracts=pickContracts();
   const rv=PNJ.find(p=>p.id===state.rivalId);
