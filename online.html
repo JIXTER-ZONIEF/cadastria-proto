@@ -131,7 +131,7 @@ document.getElementById('feedBtn').onclick=()=>act(openFeed);
 async function refreshFeedBadge(){try{const f=await api('/feed');const b=document.getElementById('wdBadge');b.textContent='j'+f.worldDay;b.style.display='flex';return f;}catch(e){}}
 async function openFeed(){const f=await api('/feed');document.getElementById('pTitle').textContent='📰 Monde · jour '+f.worldDay;
   const evs=(f.events||[]).map(e=>`<div class="item"><div class="top"><b>${e.emoji} ${e.label}</b><span class="price" style="color:${e.factor>=1?'var(--green)':'var(--bad)'}">${e.factor>=1?'+':'-'}${Math.round(Math.abs(e.factor-1)*100)}%</span></div><div class="meta">encore ${e.ticksLeft} j</div><div class="row"><button class="btn" onclick="goTo('${e.center}')">Voir</button></div></div>`).join('');
-  const items=(f.items||[]).map(it=>`<div class="meta" style="padding:4px 2px">j${it.day} · ${it.text}</div>`).join('')||'<div class="sub">Rien pour l\\'instant.</div>';
+  const items=(f.items||[]).map(it=>`<div class="meta" style="padding:4px 2px">j${it.day} · ${it.text}</div>`).join('')||'<div class="sub">Rien à signaler.</div>';
   document.getElementById('pBody').innerHTML=(evs?'<div class="sub">⚡ Événements en cours</div>'+evs:'')+'<div class="sub" style="margin-top:8px">🗞️ Derniers faits</div>'+items;
   openPanel();}
 
