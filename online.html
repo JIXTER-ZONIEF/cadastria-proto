@@ -31,6 +31,10 @@
   #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:800;background:#000d;border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;text-align:center;max-width:86vw}#toast.show{opacity:1}
   .amico{font-size:15px;text-align:center;text-shadow:0 1px 2px #000a;pointer-events:none}
   #banner{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:900;background:#0f1419;color:var(--dim);font-size:14px}
+  #auth{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:950;background:#0f1419}
+  #auth .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;width:min(340px,88vw);display:flex;flex-direction:column;gap:10px}
+  #auth h2{margin:0}#auth input{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px;color:var(--txt);font-size:15px}
+  #auth .aerr{color:var(--bad);font-size:12px;min-height:14px}
 </style>
 </head>
 <body>
@@ -51,22 +55,26 @@
 <div id="panel" class="sheet"><div class="panhead"><h3 id="pTitle">—</h3><button class="btn" onclick="closePanel()">✕</button></div><div id="pBody"></div></div>
 <div id="toast"></div>
 <div id="banner">Connexion au serveur…</div>
+<div id="auth"><div class="card"><h2>🏙️ Cadastria</h2><div class="sub">Connecte-toi ou crée un compte pour jouer</div><input id="aUser" placeholder="nom de joueur (3-20)" autocomplete="username"/><input id="aPass" type="password" placeholder="mot de passe (6+)" autocomplete="current-password"/><div class="aerr" id="aErr"></div><div class="row"><button class="btn primary" style="flex:1" onclick="doAuth('login')">Se connecter</button><button class="btn" style="flex:1" onclick="doAuth('register')">Créer un compte</button></div></div></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
 <script>
 const API='https://cadastria-api.jixter.fr/api';
-const PID=localStorage.getItem('cadastria_pid')||(()=>{const v='p-'+Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('cadastria_pid',v);return v;})();
+let TOKEN=localStorage.getItem('cadastria_token')||'';
+let PLAYER=localStorage.getItem('cadastria_player')||'';
 const EMOJI={RESIDENTIEL:'🏠',COMMERCE:'🏪',ECOLE:'🏫',PARC:'🌳',TRANSPORT:'🚇'};
 const TYPES=['COMMERCE','ECOLE','PARC','TRANSPORT','RESIDENTIEL'];
 let map,layer,markers,lineLayer,cells=[],byCell={},selected=null,linkFrom=null,myState={offers:[],contracts:[],lines:[]};
 
-const mine=c=>c.owner===PID;
+const mine=c=>c.owner===PLAYER;
 const isStation=c=>c.amenity&&c.amenity.type==='TRANSPORT';
 
 function valColor(v,socle){const r=Math.max(0,Math.min(1,(v-50)/200));const st=[[44,70,110],[40,120,90],[70,180,95],[200,190,80],[255,207,92]];const t=r*(st.length-1),i=Math.floor(t),f=t-i,a=st[i],b=st[Math.min(i+1,st.length-1)];return`rgb(${a[0]+(b[0]-a[0])*f|0},${a[1]+(b[1]-a[1])*f|0},${a[2]+(b[2]-a[2])*f|0})`;}
 function style(c){let color='#5a6b7a',w=1,dash=null;if(mine(c)){color='#3da5ff';w=2.5;}else if(c.owner){color='#e0567a';w=2;}if(c.forSale){color='#ffcf5c';w=2.5;dash='4';}if(selected&&selected.cell===c.cell){color='#fff';w=3.5;}return{color,weight:w,dashArray:dash,fillColor:valColor(c.value,c.socle),fillOpacity:.62,opacity:.95};}
 
-async function api(path,method){const r=await fetch(API+path,{method:method||'GET',headers:{'Content-Type':'application/json','X-Player-Id':PID},body:method==='POST'&&arguments[2]?JSON.stringify(arguments[2]):undefined});if(!r.ok){let m='erreur';try{m=(await r.json()).message||m;}catch(e){}throw new Error(m);}return r.json();}
+async function api(path,method){const h={'Content-Type':'application/json'};if(TOKEN)h['Authorization']='Bearer '+TOKEN;const r=await fetch(API+path,{method:method||'GET',headers:h,body:method==='POST'&&arguments[2]?JSON.stringify(arguments[2]):undefined});if(r.status===401){logout();throw new Error('Session expirée — reconnecte-toi');}if(!r.ok){let m='erreur';try{m=(await r.json()).message||m;}catch(e){}throw new Error(m);}return r.json();}
+function logout(){TOKEN='';PLAYER='';localStorage.removeItem('cadastria_token');localStorage.removeItem('cadastria_player');document.getElementById('auth').style.display='flex';}
+async function doAuth(mode){const u=document.getElementById('aUser').value.trim();const p=document.getElementById('aPass').value;const err=document.getElementById('aErr');err.textContent='';try{const r=await fetch(API+'/auth/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});const d=await r.json();if(!r.ok)throw new Error(d.message||'erreur');TOKEN=d.token;PLAYER=d.player;localStorage.setItem('cadastria_token',TOKEN);localStorage.setItem('cadastria_player',PLAYER);document.getElementById('auth').style.display='none';startGame();}catch(e){err.textContent=e.message||'échec';}}
 
 function cheers(res){if(res&&Array.isArray(res.completed)&&res.completed.length){res.completed.forEach(c=>toast('🎯 Objectif : '+c.label+' (+'+c.reward+' cr)'));}}
 
@@ -142,7 +150,7 @@ async function openLeaderboard(){const [lb,st,seasons]=await Promise.all([api('/
   document.getElementById('pTitle').textContent='🏆 Classement · saison '+st.season;
   const medal=r=>r===1?'🥇':r===2?'🥈':r===3?'🥉':'#'+r;
   const me=`<div class="sub">Toi : ${st.rank?medal(st.rank):'—'} · valeur nette ${st.net}</div>`;
-  const rows=lb.length?lb.map(r=>{const mine=r.player===PID;return `<div class="item" style="${mine?'border-color:var(--me)':''}"><div class="top"><b>${medal(r.rank)} ${mine?'TOI':'@'+r.player}</b><span class="price">${r.net}</span></div><div class="meta">argent ${r.money} · empire ${r.empire} · ${r.owned} biens</div></div>`;}).join(''):'<div class="sub">Personne au classement.</div>';
+  const rows=lb.length?lb.map(r=>{const mine=r.player===PLAYER;return `<div class="item" style="${mine?'border-color:var(--me)':''}"><div class="top"><b>${medal(r.rank)} ${mine?'TOI':'@'+r.player}</b><span class="price">${r.net}</span></div><div class="meta">argent ${r.money} · empire ${r.empire} · ${r.owned} biens</div></div>`;}).join(''):'<div class="sub">Personne au classement.</div>';
   const past=(seasons||[]).length?'<div class="sub" style="margin-top:8px">📜 Saisons passées</div>'+seasons.map(s=>`<div class="meta" style="padding:3px 2px">Saison ${s.season} · 🏆 ${s.winner?'@'+s.winner:'—'} (${s.winnerScore})</div>`).join(''):'';
   document.getElementById('pBody').innerHTML=me+rows+past;
   openPanel();}
@@ -150,7 +158,7 @@ async function openLeaderboard(){const [lb,st,seasons]=await Promise.all([api('/
 async function openMarket(){const items=await api('/market');document.getElementById('pTitle').textContent='🏷️ Biens à vendre ('+items.length+')';
   const el=document.getElementById('pBody');
   if(!items.length){el.innerHTML='<div class="sub">Aucun bien en vente. Mets un des tiens en vente, ou reviens plus tard.</div>';openPanel();return;}
-  el.innerHTML=items.map(m=>{const own=m.owner===PID;const t=(m.amenity?EMOJI[m.amenity.type]+' ':'')+'Parcelle';return `<div class="item"><div class="top"><b>${t}</b><span class="price">${m.ask} cr</span></div><div class="meta">${own?'à toi':'@'+m.owner} · valeur ${m.value}</div><div class="row">${own?`<button class="btn" onclick="doUnlist('${m.cell}')">Retirer</button>`:`<button class="btn gold" onclick="mkBuy('${m.cell}')">Acheter</button>`}<button class="btn" onclick="goTo('${m.cell}')">Voir</button></div></div>`;}).join('');
+  el.innerHTML=items.map(m=>{const own=m.owner===PLAYER;const t=(m.amenity?EMOJI[m.amenity.type]+' ':'')+'Parcelle';return `<div class="item"><div class="top"><b>${t}</b><span class="price">${m.ask} cr</span></div><div class="meta">${own?'à toi':'@'+m.owner} · valeur ${m.value}</div><div class="row">${own?`<button class="btn" onclick="doUnlist('${m.cell}')">Retirer</button>`:`<button class="btn gold" onclick="mkBuy('${m.cell}')">Acheter</button>`}<button class="btn" onclick="goTo('${m.cell}')">Voir</button></div></div>`;}).join('');
   openPanel();
 }
 async function mkBuy(cell){await act(async()=>{const r=await api('/parcels/'+cell+'/buy','POST');toast('Acquis · -'+r.paid+' cr');await refreshAll();cheers(r);openMarket();});}
@@ -170,17 +178,22 @@ function goTo(cell){closePanel();const c=byCell[cell];if(c){map.panTo([c.lat,c.l
 
 let tT;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2200);}
 
-async function boot(){
-  map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([49.119,6.176],16);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
-  L.control.zoom({position:'bottomright'}).addTo(map);
-  layer=L.layerGroup().addTo(map);lineLayer=L.layerGroup().addTo(map);markers=L.layerGroup().addTo(map);
-  map.on('click',()=>{if(linkFrom){linkFrom=null;toast('Liaison annulée');return;}selected=null;document.getElementById('sheet').classList.remove('open');redraw();});
+async function startGame(){
+  document.getElementById('banner').style.display='flex';
+  document.getElementById('banner').textContent='Connexion au serveur…';
+  if(!map){
+    map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([49.119,6.176],16);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+    L.control.zoom({position:'bottomright'}).addTo(map);
+    layer=L.layerGroup().addTo(map);lineLayer=L.layerGroup().addTo(map);markers=L.layerGroup().addTo(map);
+    map.on('click',()=>{if(linkFrom){linkFrom=null;toast('Liaison annulée');return;}selected=null;document.getElementById('sheet').classList.remove('open');redraw();});
+  }
   try{await loadWorld();await refreshState();await refreshFeedBadge();document.getElementById('banner').style.display='none';}
   catch(e){document.getElementById('banner').textContent='Serveur injoignable : '+e.message;}
-  // le monde bouge tout seul (tick ~90s) : rafraîchissement discret
-  setInterval(async()=>{try{await loadWorld();await refreshState();await refreshFeedBadge();}catch(e){}},60000);
+  // le monde bouge tout seul (tick ~90s) : rafraîchissement discret (une seule boucle)
+  if(!startGame._iv)startGame._iv=setInterval(async()=>{try{await loadWorld();await refreshState();await refreshFeedBadge();}catch(e){}},60000);
 }
+function boot(){if(TOKEN){document.getElementById('banner').style.display='none';startGame();}else{document.getElementById('banner').style.display='none';document.getElementById('auth').style.display='flex';}}
 boot();
 </script>
 </body>
