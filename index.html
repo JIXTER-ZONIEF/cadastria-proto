@@ -44,6 +44,8 @@
   #progressFill{height:100%;width:0;background:linear-gradient(90deg,var(--me),var(--gold));transition:width .45s ease}
   .btn.metro{background:#13344a;border-color:var(--metro);color:var(--metro)}
   #linkbar{position:fixed;top:92px;left:50%;transform:translateX(-50%);z-index:610;background:#13344aee;border:1px solid var(--metro);color:var(--metro);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:600;display:none}#linkbar.show{display:block}
+  .fab{position:fixed;bottom:14px;z-index:600;background:var(--panel);border:1px solid var(--line);color:var(--txt);width:42px;height:42px;border-radius:50%;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px #0006}
+  #locate{left:10px}#help{left:60px}
 </style>
 </head>
 <body>
@@ -59,6 +61,8 @@
 <div id="season"><div class="pill">Saison 1 · Jour <b id="day">1</b>/30 · Empire <b id="empireGoal">0</b>/<b id="goal">5000</b></div></div>
 <div id="progress"><div id="progressFill"></div></div>
 <div id="linkbar">🚇 Tape une autre de tes stations pour relier — ou la carte pour annuler</div>
+<button class="fab" id="locate" title="Centrer sur mes biens">📍</button>
+<button class="fab" id="help" title="Revoir les règles">?</button>
 <div id="toast"></div>
 
 <div id="sheet"><h3 id="sTitle">Bâtiment</h3><div class="sub" id="sSub"></div><div id="sBody"></div></div>
@@ -232,6 +236,8 @@ function restart(){newGame();}
 function newGame(){try{localStorage.removeItem(KEY);}catch(e){}document.getElementById('seasonEnd').classList.remove('open');selected=null;previewSet=null;closeSheet();init();recomputeBoosts();recalcNetwork();renderBoard();clearSelLines();syncHUD();save();toast('Nouvelle partie');}
 function closeOnboard(){document.getElementById('onboard').classList.remove('open');setTimeout(()=>map.invalidateSize(),100);}
 document.getElementById('menuBtn').onclick=()=>{if(confirm('Nouvelle partie ? La progression actuelle sera perdue.'))newGame();};
+document.getElementById('locate').onclick=()=>{const mine=myCells();if(mine.length){const g=L.featureGroup(mine.map(c=>c.layer).filter(Boolean));try{map.fitBounds(g.getBounds().pad(0.3));}catch(e){}toast('Tes biens : '+mine.length);}else{map.setView(D.center,16);toast('Tu ne possèdes rien — achète un bâtiment pour démarrer');}};
+document.getElementById('help').onclick=()=>document.getElementById('onboard').classList.add('open');
 
 // ===== Boot =====
 createMap();
