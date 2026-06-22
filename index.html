@@ -40,6 +40,8 @@
   .step{display:flex;gap:10px;align-items:flex-start;margin:10px 0;font-size:13px} .step .n{flex:0 0 24px;height:24px;border-radius:50%;background:var(--me);color:#04243f;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px}
   #toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);z-index:800;background:#000d;border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}#toast.show{opacity:1}
   .leaflet-control-attribution{font-size:9px}
+  #progress{position:fixed;top:79px;left:0;right:0;z-index:500;height:3px;background:#ffffff14;pointer-events:none}
+  #progressFill{height:100%;width:0;background:linear-gradient(90deg,var(--me),var(--gold));transition:width .45s ease}
 </style>
 </head>
 <body>
@@ -52,7 +54,8 @@
   <button class="btn gold" id="collectBtn">Percevoir <span id="pending"></span></button>
   <button class="btn primary" id="nextDay">Jour +</button>
 </div>
-<div id="season"><div class="pill">Saison 1 · Jour <b id="day">1</b>/30 · Objectif empire <b id="goal">5000</b></div></div>
+<div id="season"><div class="pill">Saison 1 · Jour <b id="day">1</b>/30 · Empire <b id="empireGoal">0</b>/<b id="goal">5000</b></div></div>
+<div id="progress"><div id="progressFill"></div></div>
 <div id="toast"></div>
 
 <div id="sheet"><h3 id="sTitle">Bâtiment</h3><div class="sub" id="sSub"></div><div id="sBody"></div></div>
@@ -204,12 +207,14 @@ function showFeed(){document.getElementById('feedDay').textContent='Jour '+state
 function closeFeed(){document.getElementById('feedModal').classList.remove('open');}
 
 // ===== HUD =====
-function syncHUD(){document.getElementById('money').textContent=Math.round(state.money);document.getElementById('empire').textContent=empireValue();document.getElementById('day').textContent=state.day;document.getElementById('goal').textContent=state.goal;const pend=Math.floor(state.pending);document.getElementById('pending').textContent=pend>0?('+'+pend):'';document.getElementById('collectBtn').disabled=pend<1;}
+const _disp={};
+function animateTo(id,to){const el=document.getElementById(id);if(!el)return;const from=_disp[id]??to;_disp[id]=to;const start=performance.now();(function step(t){const k=Math.min(1,(t-start)/350);el.textContent=Math.round(from+(to-from)*k);if(k<1)requestAnimationFrame(step);})(performance.now());}
+function syncHUD(){const emp=empireValue();animateTo('money',Math.round(state.money));animateTo('empire',emp);document.getElementById('empireGoal').textContent=emp;document.getElementById('day').textContent=state.day;document.getElementById('goal').textContent=state.goal;document.getElementById('progressFill').style.width=Math.min(100,emp/state.goal*100)+'%';const pend=Math.floor(state.pending);document.getElementById('pending').textContent=pend>0?('+'+pend):'';document.getElementById('collectBtn').disabled=pend<1;}
 document.getElementById('collectBtn').onclick=()=>{const g=Math.floor(state.pending);if(g<1)return;state.money+=g;state.pending-=g;toast('+'+g+' crédits perçus');syncHUD();save();if(selected)renderSheet(selected);};
 document.getElementById('nextDay').onclick=nextDay;
 let toastT;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function endSeason(){state.over=true;const win=empireValue()>=state.goal;document.getElementById('seTitle').textContent=win?'🏆 Objectif atteint !':'Saison terminée';document.getElementById('seBody').innerHTML=`Empire final : <b>${empireValue()}</b>.<br>${win?'Tu as transformé ton coin de Metz. Prestige conservé pour la saison 2.':'Pas tout à fait l\'objectif — mais le quartier a changé grâce à toi.'}`;document.getElementById('seasonEnd').classList.add('open');save();}
+function endSeason(){state.over=true;const emp=empireValue();const win=emp>=state.goal;const score=emp+Math.round(state.money+state.pending);document.getElementById('seTitle').textContent=win?'🏆 Objectif atteint !':'Saison terminée';document.getElementById('seBody').innerHTML=`Empire final : <b>${emp}</b> · Score (empire + crédits) : <b>${score}</b>.<br>${win?'Tu as transformé ton coin de Metz. Prestige conservé pour la prochaine saison.':'Pas tout à fait l\'objectif — mais le quartier a changé grâce à toi. Réessaie !'}`;document.getElementById('seasonEnd').classList.add('open');save();}
 function restart(){newGame();}
 function newGame(){try{localStorage.removeItem(KEY);}catch(e){}document.getElementById('seasonEnd').classList.remove('open');selected=null;previewSet=null;closeSheet();init();renderBoard();syncHUD();save();toast('Nouvelle partie');}
 function closeOnboard(){document.getElementById('onboard').classList.remove('open');setTimeout(()=>map.invalidateSize(),100);}
