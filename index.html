@@ -45,6 +45,7 @@
 <body>
 <div id="map"></div>
 <div id="hud">
+  <button class="btn" id="menuBtn" title="Nouvelle partie" style="padding:9px 10px">⋯</button>
   <div class="stat"><b id="money">—</b><span>crédits</span></div>
   <div class="stat"><b id="empire">—</b><span>empire</span></div>
   <div class="grow"></div>
@@ -58,7 +59,7 @@
 
 <div class="modal" id="feedModal"><div class="card"><h2>🌙 Pendant ton absence</h2><div class="muted" id="feedDay"></div><ul class="feed" id="feedList"></ul><div class="row"><button class="btn primary" style="flex:1" onclick="closeFeed()">Continuer</button></div></div></div>
 
-<div class="modal open" id="onboard"><div class="card">
+<div class="modal" id="onboard"><div class="card">
   <h2>Cadastria · Metz 🗺️</h2>
   <p class="big">Tu joues sur les <b>vrais bâtiments de Metz</b> (données OpenStreetMap). Chaque bâtiment vaut quelque chose selon <b>ce qu'il y a autour</b>. Achète, construis, transforme ton quartier.</p>
   <div class="step"><div class="n">1</div><div><b>Achète</b> un bâtiment (tape dessus). Vise les zones bien placées (plus claires).</div></div>
@@ -83,11 +84,13 @@ const PNJ=[{id:'p0',name:'Karim',c:'#e0567a'},{id:'p1',name:'Sophie',c:'#37c878'
 function lvlF(l){return l<=1?1:(l===2?1.5:1.8);}
 
 const D=window.METZ_DATA;
-let cells,state,map,fxLayer,markerLayer;
+let cells,state,map,fxLayer,markerLayer,boardLayer;
+const KEY='cadastria_metz_v5';
 function gdist(a,b){return Math.hypot((a.lat-b.lat)*111320,(a.lon-b.lon)*111320*Math.cos(a.lat*Math.PI/180));}
+function freshCells(){return D.cells.map(c=>({...c,owner:null,amenity:null,layer:null,marker:null}));}
 
 function init(){
-  cells=D.cells.map(c=>({...c,owner:null,amenity:null,layer:null,marker:null}));
+  cells=freshCells();
   state={money:1500,day:1,pending:0,goal:5000,feed:[],over:false};
   seedPNJ();
   state.feed=[{t:'Le quartier est déjà animé : '+PNJ[0].name+', '+PNJ[1].name+' et '+PNJ[2].name+' y ont investi.',cls:'muted'}];
@@ -97,6 +100,9 @@ function seedPNJ(){
   for(const c of hot){if(pick.length>=18)break;if(pick.some(u=>gdist(u,c)<70))continue;pick.push(c);}
   pick.forEach((c,i)=>{const p=PNJ[i%PNJ.length];c.owner=p.id;const t=c.cat==='transport'?'TRANSPORT':c.cat==='parc'?'PARC':c.cat==='ecole'?'ECOLE':'COMMERCE';c.amenity={type:t,level:1+(Math.random()<0.3?1:0),by:p.id};});
 }
+// ===== Sauvegarde (locale) =====
+function save(){try{const dyn=cells.filter(c=>c.owner||c.amenity).map(c=>({i:c.i,owner:c.owner,amenity:c.amenity}));localStorage.setItem(KEY,JSON.stringify({v:5,money:state.money,day:state.day,pending:state.pending,goal:state.goal,over:state.over,cells:dyn}));}catch(e){}}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(!s||s.v!==5)return false;cells=freshCells();const bi=new Map(cells.map(c=>[c.i,c]));(s.cells||[]).forEach(d=>{const c=bi.get(d.i);if(c){c.owner=d.owner;c.amenity=d.amenity;}});state={money:s.money,day:s.day,pending:s.pending,goal:s.goal,over:!!s.over,feed:[]};return true;}catch(e){return false;}}
 
 // ===== Éco (sur voisinage réel précalculé cell.nbr = [[index, kernel], ...]) =====
 function ownerKind(c){return c.owner==='me'?'HUMAN':(c.owner?'PNJ':null);}
@@ -125,15 +131,18 @@ function dailyNet(){let s=0;for(const c of myCells()){const v=value(c);if(c.amen
 function valColor(c){const v=value(c);const r=Math.max(0,Math.min(1,(v-50)/200));const st=[[44,70,110],[40,120,90],[70,180,95],[200,190,80],[255,207,92]];const t=r*(st.length-1);const i=Math.floor(t),f=t-i;const a=st[i],b=st[Math.min(i+1,st.length-1)];return`rgb(${a[0]+(b[0]-a[0])*f|0},${a[1]+(b[1]-a[1])*f|0},${a[2]+(b[2]-a[2])*f|0})`;}
 let selected=null,previewSet=null;
 function styleFor(c){let color='#5a6b7a',weight=1,dash=null;if(c.owner==='me'){color='#3da5ff';weight=2.5;}else if(c.owner){color=(PNJ.find(p=>p.id===c.owner)||{}).c;weight=2;}if(previewSet&&previewSet.has(c)){color='#ffffff';weight=2.5;dash='3';}if(selected===c){color='#ffffff';weight=3.5;}return{color,weight,dashArray:dash,fillColor:valColor(c),fillOpacity:0.62,opacity:0.95};}
-function setupMap(){
+function createMap(){
   map=L.map('map',{zoomControl:false,attributionControl:true,preferCanvas:true}).setView(D.center,16);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
   L.control.zoom({position:'bottomright'}).addTo(map);
-  fxLayer=L.layerGroup().addTo(map);markerLayer=L.layerGroup().addTo(map);
-  const grp=L.featureGroup();
-  for(const c of cells){const layer=L.polygon(c.poly,styleFor(c));layer.on('click',e=>{L.DomEvent.stop(e);select(c);});layer.addTo(map);c.layer=layer;grp.addLayer(layer);}
-  map.fitBounds(grp.getBounds().pad(0.04));
+  boardLayer=L.layerGroup().addTo(map);fxLayer=L.layerGroup().addTo(map);markerLayer=L.layerGroup().addTo(map);
   map.on('click',()=>{selected=null;previewSet=null;closeSheet();redraw();});
+}
+function renderBoard(){
+  boardLayer.clearLayers();markerLayer.clearLayers();
+  const grp=L.featureGroup();
+  for(const c of cells){const layer=L.polygon(c.poly,styleFor(c));layer.on('click',e=>{L.DomEvent.stop(e);select(c);});layer.addTo(boardLayer);c.layer=layer;grp.addLayer(layer);}
+  try{map.fitBounds(grp.getBounds().pad(0.04));}catch(e){}
   cells.forEach(refreshMarker);
 }
 function refreshMarker(c){if(c.marker){markerLayer.removeLayer(c.marker);c.marker=null;}if(c.amenity){c.marker=L.marker([c.lat,c.lon],{interactive:false,icon:L.divIcon({className:'',html:`<div class="amico">${EMOJI[c.amenity.type]}</div>`,iconSize:[18,18]})}).addTo(markerLayer);}}
@@ -166,11 +175,11 @@ function renderTypes(c){const td=document.getElementById('types');const lvl=c.am
   td.querySelectorAll('.typ').forEach(el=>el.onclick=()=>{td.querySelectorAll('.typ').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');preview(c,el.dataset.t,lvl);});}
 function valueWithout(n,c,oldA){const cur=c.amenity;c.amenity=oldA;const v=value(n);c.amenity=cur;return v;}
 function preview(c,t,lvl){const aff=affected(c);const before=new Map();aff.forEach(n=>before.set(n,value(n)));const old=c.amenity;c.amenity={type:t,level:lvl,by:'me'};previewSet=new Set();let mineGain=0;aff.forEach(n=>{const d=value(n)-before.get(n);if(d>0.5){previewSet.add(n);if(n.owner==='me'||n===c)mineGain+=d;}});c.amenity=old;const cost=buildCost(c,lvl);document.getElementById('previewInfo').innerHTML=`Coût ${cost} cr · ${previewSet.size} bâtiment(s) voisin(s) valorisé(s)${mineGain>0?' · <span class="pos">+'+Math.round(mineGain)+' sur tes biens</span>':''}`;const bb=document.getElementById('buildBtn');bb.disabled=state.money<cost;bb.textContent=(c.amenity?'Améliorer':'Construire')+' '+EMOJI[t]+' · '+cost+' cr';bb.onclick=()=>build(c,t,lvl,cost);redraw();}
-function build(c,t,lvl,cost){if(state.money<cost)return;state.money-=cost;const old=c.amenity;c.amenity={type:t,level:lvl,by:'me'};affected(c).forEach(n=>{if(n===c)return;const bef=valueWithout(n,c,old);const aft=value(n);const d=aft-bef;if(d>0.5){pulse(n);floatFx(n,'+'+Math.round(d/bef*100)+'%');}});refreshMarker(c);pulse(c);toast(lvl>1?'Amélioré !':'Construit ! Le quartier réagit.');previewSet=null;syncHUD();renderSheet(c);redraw();}
-function buy(i){const c=cells[i];const cost=buyCost(c);if(state.money<cost)return;state.money-=cost;c.owner='me';if(c.amenity)c.amenity.by='me';toast('Acquis · '+(c.near||c.cat));syncHUD();renderSheet(c);redraw();}
+function build(c,t,lvl,cost){if(state.money<cost)return;state.money-=cost;const old=c.amenity;c.amenity={type:t,level:lvl,by:'me'};affected(c).forEach(n=>{if(n===c)return;const bef=valueWithout(n,c,old);const aft=value(n);const d=aft-bef;if(d>0.5){pulse(n);floatFx(n,'+'+Math.round(d/bef*100)+'%');}});refreshMarker(c);pulse(c);toast(lvl>1?'Amélioré !':'Construit ! Le quartier réagit.');previewSet=null;syncHUD();renderSheet(c);redraw();save();}
+function buy(i){const c=cells[i];const cost=buyCost(c);if(state.money<cost)return;state.money-=cost;c.owner='me';if(c.amenity)c.amenity.by='me';toast('Acquis · '+(c.near||c.cat));syncHUD();renderSheet(c);redraw();save();}
 
 // ===== Tour / PNJ / feed =====
-function nextDay(){if(state.over)return;state.pending+=dailyNet();state.day++;const feed=[];const actors=shuffle(PNJ.slice()).slice(0,2);for(const p of actors)pnjAct(p,feed);if(!feed.length)feed.push({t:'Nuit calme dans le quartier.',cls:'muted'});state.feed=feed;showFeed();syncHUD();if(state.day>30||empireValue()>=state.goal)endSeason();}
+function nextDay(){if(state.over)return;state.pending+=dailyNet();state.day++;const feed=[];const actors=shuffle(PNJ.slice()).slice(0,2);for(const p of actors)pnjAct(p,feed);if(!feed.length)feed.push({t:'Nuit calme dans le quartier.',cls:'muted'});state.feed=feed;showFeed();syncHUD();save();if(state.day>30||empireValue()>=state.goal)endSeason();}
 function snapshot(arr){const m=new Map();arr.forEach(c=>m.set(c,value(c)));return m;}
 function pnjAct(p,feed){const mine=myCells();const own=cells.filter(c=>c.owner===p.id&&c.amenity&&c.amenity.level<3);if(own.length&&Math.random()<0.5){const t=own[Math.floor(Math.random()*own.length)];const before=snapshot(mine);t.amenity.level++;refreshMarker(t);feedDelta(p,t,before,mine,feed,'a agrandi son '+t.amenity.type.toLowerCase());redraw();return;}const free=cells.filter(c=>!c.owner).sort((a,b)=>b.socle-a.socle);const tg=free[Math.floor(Math.random()*Math.min(12,free.length))];if(!tg)return;tg.owner=p.id;const ty=tg.cat==='transport'?'TRANSPORT':tg.cat==='parc'?'PARC':tg.cat==='ecole'?'ECOLE':'COMMERCE';const before=snapshot(mine);tg.amenity={type:ty,level:1,by:p.id};refreshMarker(tg);feedDelta(p,tg,before,mine,feed,'a construit un '+ty.toLowerCase());redraw();}
 function feedDelta(p,target,before,mine,feed,act){let touched=0,bestc=null,bestd=0;mine.forEach(c=>{const d=value(c)-before.get(c);if(d>0.5){touched++;if(d>bestd){bestd=d;bestc=c;}}});if(touched>0){const pct=Math.round(bestd/(value(bestc)-bestd)*100);feed.push({t:`${EMOJI[target.amenity.type]} <b>@${p.name}</b> ${act} ${target.near?('('+target.near+')'):''} → ton bien ${bestc.near?('« '+bestc.near+' »'):''} <span class="amt pos">+${pct>0?pct:1}%</span>${touched>1?' (+'+(touched-1)+' autres)':''}`,cls:''});}else{feed.push({t:`<b>@${p.name}</b> ${act} ${target.near?('('+target.near+')'):'dans le quartier'}.`,cls:'muted'});}}
@@ -179,16 +188,24 @@ function closeFeed(){document.getElementById('feedModal').classList.remove('open
 
 // ===== HUD =====
 function syncHUD(){document.getElementById('money').textContent=Math.round(state.money);document.getElementById('empire').textContent=empireValue();document.getElementById('day').textContent=state.day;document.getElementById('goal').textContent=state.goal;const pend=Math.floor(state.pending);document.getElementById('pending').textContent=pend>0?('+'+pend):'';document.getElementById('collectBtn').disabled=pend<1;}
-document.getElementById('collectBtn').onclick=()=>{const g=Math.floor(state.pending);if(g<1)return;state.money+=g;state.pending-=g;toast('+'+g+' crédits perçus');syncHUD();if(selected)renderSheet(selected);};
+document.getElementById('collectBtn').onclick=()=>{const g=Math.floor(state.pending);if(g<1)return;state.money+=g;state.pending-=g;toast('+'+g+' crédits perçus');syncHUD();save();if(selected)renderSheet(selected);};
 document.getElementById('nextDay').onclick=nextDay;
 let toastT;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function endSeason(){state.over=true;const win=empireValue()>=state.goal;document.getElementById('seTitle').textContent=win?'🏆 Objectif atteint !':'Saison terminée';document.getElementById('seBody').innerHTML=`Empire final : <b>${empireValue()}</b>.<br>${win?'Tu as transformé ton coin de Metz. Prestige conservé pour la saison 2.':'Pas tout à fait l\'objectif — mais le quartier a changé grâce à toi.'}`;document.getElementById('seasonEnd').classList.add('open');}
-function restart(){document.getElementById('seasonEnd').classList.remove('open');markerLayer.clearLayers();cells.forEach(c=>{if(c.layer)map.removeLayer(c.layer);});init();setupMap();syncHUD();}
+function endSeason(){state.over=true;const win=empireValue()>=state.goal;document.getElementById('seTitle').textContent=win?'🏆 Objectif atteint !':'Saison terminée';document.getElementById('seBody').innerHTML=`Empire final : <b>${empireValue()}</b>.<br>${win?'Tu as transformé ton coin de Metz. Prestige conservé pour la saison 2.':'Pas tout à fait l\'objectif — mais le quartier a changé grâce à toi.'}`;document.getElementById('seasonEnd').classList.add('open');save();}
+function restart(){newGame();}
+function newGame(){try{localStorage.removeItem(KEY);}catch(e){}document.getElementById('seasonEnd').classList.remove('open');selected=null;previewSet=null;closeSheet();init();renderBoard();syncHUD();save();toast('Nouvelle partie');}
 function closeOnboard(){document.getElementById('onboard').classList.remove('open');setTimeout(()=>map.invalidateSize(),100);}
+document.getElementById('menuBtn').onclick=()=>{if(confirm('Nouvelle partie ? La progression actuelle sera perdue.'))newGame();};
 
 // ===== Boot =====
-init();setupMap();syncHUD();
+createMap();
+const loaded=load();
+if(!loaded)init();
+renderBoard();
+syncHUD();
+if(loaded){toast('Partie reprise · jour '+state.day);}else{document.getElementById('onboard').classList.add('open');}
+save();
 window.addEventListener('resize',()=>map&&map.invalidateSize());
 </script>
 </body>
