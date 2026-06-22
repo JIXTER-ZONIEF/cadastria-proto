@@ -177,12 +177,15 @@ function openPortfolio(){const owned=cells.filter(mine).sort((a,b)=>b.value-a.va
   const cs=(myState.contracts||[]).map(c=>`<div class="item" style="border-color:${c.done?'var(--green)':'var(--line)'}"><div class="top"><b>${c.done?'✅':'🎯'} ${c.label}</b><span class="price">+${c.reward}</span></div></div>`).join('');
   const offs=(myState.offers||[]).map(o=>`<div class="item"><div class="top"><b>🤝 Offre de @${o.buyer}</b><span class="price">${o.price} cr</span></div><div class="meta">valeur ${o.value}</div><div class="row"><button class="btn gold" onclick="doAccept('${o.cell}','${o.buyer}')">Accepter</button><button class="btn" onclick="doRefuse('${o.cell}','${o.buyer}')">Refuser</button><button class="btn" onclick="goTo('${o.cell}')">Voir</button></div></div>`).join('');
   const list=owned.length?owned.map(c=>{const t=(c.amenity?EMOJI[c.amenity.type]+' ':'')+'Parcelle';return `<div class="item"><div class="top"><b>${t}</b><span class="price">${c.value}</span></div><div class="meta">${c.forSale?'🏷️ en vente '+c.ask:'non listé'}</div><div class="row"><button class="btn" onclick="goTo('${c.cell}')">Voir</button></div></div>`;}).join(''):'<div class="sub">Tu ne possèdes rien encore.</div>';
+  const account='<div class="sub" style="margin-top:8px">👤 Compte · @'+PLAYER+'</div><div class="row"><button class="btn" onclick="doChangePassword()">🔑 Changer le mot de passe</button><button class="btn" onclick="logout()">Se déconnecter</button></div>';
   document.getElementById('pBody').innerHTML=
     '<div class="sub">🎯 Objectifs de saison</div>'+(cs||'<div class="sub">—</div>')
     +(offs?'<div class="sub" style="margin-top:8px">🤝 Offres reçues</div>'+offs:'')
-    +'<div class="sub" style="margin-top:8px">🏙️ Bâtiments</div>'+list;
+    +'<div class="sub" style="margin-top:8px">🏙️ Bâtiments</div>'+list
+    +account;
   openPanel();
 }
+async function doChangePassword(){const cur=prompt('Mot de passe actuel :');if(cur===null)return;const nw=prompt('Nouveau mot de passe (6 caractères min) :');if(nw===null)return;await act(async()=>{await api('/auth/change-password','POST',{currentPassword:cur,newPassword:nw});toast('🔑 Mot de passe modifié');});}
 function goTo(cell){closePanel();const c=byCell[cell];if(c){map.panTo([c.lat,c.lon]);select(cell);}}
 
 let tT;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2200);}
