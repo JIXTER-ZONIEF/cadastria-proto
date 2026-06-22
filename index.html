@@ -45,7 +45,25 @@
   .btn.metro{background:#13344a;border-color:var(--metro);color:var(--metro)}
   #linkbar{position:fixed;top:92px;left:50%;transform:translateX(-50%);z-index:610;background:#13344aee;border:1px solid var(--metro);color:var(--metro);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:600;display:none}#linkbar.show{display:block}
   .fab{position:fixed;bottom:14px;z-index:600;background:var(--panel);border:1px solid var(--line);color:var(--txt);width:42px;height:42px;border-radius:50%;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px #0006}
-  #locate{left:10px}#help{left:60px}
+  #locate{left:10px}#help{left:60px}#market-btn{left:110px}
+  #mkBadge{position:absolute;top:-4px;right:-4px;background:var(--gold);color:#3a2c00;border-radius:999px;font-size:10px;font-weight:800;min-width:16px;height:16px;display:none;align-items:center;justify-content:center;padding:0 3px}
+  #market{position:fixed;top:0;right:0;bottom:0;width:min(320px,84vw);z-index:760;background:var(--panel);border-left:1px solid var(--line);transform:translateX(103%);transition:transform .25s ease;display:flex;flex-direction:column;box-shadow:-4px 0 16px #0007}
+  #market.open{transform:none}
+  #market .mkhead{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  #market .mkhead h3{margin:0;font-size:16px}
+  #mkList{overflow:auto;padding:8px 10px;flex:1}
+  .mkitem{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-bottom:8px}
+  .mkitem .top{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+  .mkitem .price{color:var(--gold);font-weight:700;white-space:nowrap}
+  .mkitem .meta{color:var(--dim);font-size:11px;margin:3px 0 7px}
+  .mkitem .acts{display:flex;gap:6px}.mkitem .acts .btn{padding:6px 9px;font-size:12px;flex:1}
+  #portfolio-btn{left:160px}
+  #portfolio{position:fixed;top:0;left:0;bottom:0;width:min(320px,84vw);z-index:760;background:var(--panel);border-right:1px solid var(--line);transform:translateX(-103%);transition:transform .25s ease;display:flex;flex-direction:column;box-shadow:4px 0 16px #0007}
+  #portfolio.open{transform:none}
+  #portfolio .mkhead{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  #portfolio .mkhead h3{margin:0;font-size:16px}
+  #pfList{overflow:auto;padding:8px 10px;flex:1}
+  .typ.disabled{opacity:.35;pointer-events:none;position:relative}
 </style>
 </head>
 <body>
@@ -55,14 +73,17 @@
   <div class="stat"><b id="money">—</b><span>crédits</span></div>
   <div class="stat"><b id="empire">—</b><span>empire</span></div>
   <div class="grow"></div>
-  <button class="btn gold" id="collectBtn">Percevoir <span id="pending"></span></button>
   <button class="btn primary" id="nextDay">Jour +</button>
 </div>
-<div id="season"><div class="pill">Saison 1 · Jour <b id="day">1</b>/30 · Empire <b id="empireGoal">0</b>/<b id="goal">5000</b></div></div>
+<div id="season"><div class="pill">Saison 1 · Jour <b id="day">1</b>/30 · Empire <b id="empireGoal">0</b>/<b id="goal">4600</b></div></div>
 <div id="progress"><div id="progressFill"></div></div>
 <div id="linkbar">🚇 Tape une autre de tes stations pour relier — ou la carte pour annuler</div>
 <button class="fab" id="locate" title="Centrer sur mes biens">📍</button>
 <button class="fab" id="help" title="Revoir les règles">?</button>
+<button class="fab" id="market-btn" title="Biens à vendre">🏷️<span id="mkBadge"></span></button>
+<button class="fab" id="portfolio-btn" title="Mes biens">📦</button>
+<div id="market"><div class="mkhead"><h3>🏷️ Biens à vendre</h3><button class="btn sm" onclick="closeMarket()">✕</button></div><div id="mkList"></div></div>
+<div id="portfolio"><div class="mkhead"><h3 id="pfTitle">📦 Mes biens</h3><button class="btn sm" onclick="closePortfolio()">✕</button></div><div id="pfList"></div></div>
 <div id="toast"></div>
 
 <div id="sheet"><h3 id="sTitle">Bâtiment</h3><div class="sub" id="sSub"></div><div id="sBody"></div></div>
@@ -75,7 +96,7 @@
   <div class="step"><div class="n">1</div><div><b>Achète</b> un bâtiment (tape dessus). Vise les zones bien placées (plus claires).</div></div>
   <div class="step"><div class="n">2</div><div><b>Construis/transforme</b>. Tu vois <b>en avance</b> quels bâtiments voisins vont prendre de la valeur.</div></div>
   <div class="step"><div class="n">3</div><div>Ça <b>valorise les voisins</b> — les tiens <i>et</i> ceux de Karim, Sophie & co. Eux aussi agissent : reviens voir.</div></div>
-  <div class="step"><div class="n">4</div><div><b>Perçois</b> ta rente, fais grossir ton empire. Objectif : 5000 en 30 jours.</div></div>
+  <div class="step"><div class="n">4</div><div><b>Perçois</b> ta rente, fais grossir ton empire. Objectif : 4600 en 30 jours.</div></div>
   <div class="row"><button class="btn primary" style="flex:1" onclick="closeOnboard()">Jouer</button></div>
   <div class="hint center">Prototype · valeurs de jeu (pas les vrais prix) · bâtiments © OpenStreetMap</div>
 </div></div>
@@ -102,7 +123,7 @@ function pnjName(id){const p=PNJ.find(x=>x.id===id);return p?p.name:id;}
 
 function init(){
   cells=freshCells();
-  state={money:1500,day:1,pending:0,goal:5000,feed:[],over:false,events:[],lines:[],linkFrom:null,rivalId:PNJ[Math.floor(Math.random()*PNJ.length)].id};
+  state={money:1500,day:1,pending:0,goal:4600,feed:[],over:false,events:[],lines:[],linkFrom:null,rivalId:PNJ[Math.floor(Math.random()*PNJ.length)].id};
   seedPNJ();
   const rv=PNJ.find(p=>p.id===state.rivalId);
   state.feed=[{t:'Le quartier est déjà animé. ⚔️ Ton rival cette saison : <b>@'+rv.name+'</b> — surveille tes voisins.',cls:'muted'}];
@@ -158,6 +179,10 @@ function maint(a){return P.maintRate*OP[a.type]*lvlF(a.level);}
 function fricheTax(c){return P.fricheTaxRate*c.socle;}
 function buyCost(c){return Math.round(value(c)*(c.owner&&c.owner!=='me'?P.pnjBuyMarkup:1));}
 function buildCost(c,level){const d=c.nbr.filter(([j])=>cells[j].amenity).length;return Math.round((P.buildBase+P.buildDens*d)*lvlF(level));}
+// Zonage : plafond par type d'aménité dans un secteur (~500 m). RESIDENTIEL illimité.
+const CAP={ECOLE:3,TRANSPORT:3,PARC:4,COMMERCE:12};const ZONE_R=160;
+function zoneTypeCount(c,t){let n=0;for(const o of cells){if(o!==c&&o.amenity&&o.amenity.type===t&&gdist(o,c)<=ZONE_R)n++;}return n;}
+function canBuild(c,t){if(!(t in CAP))return true;if(c.amenity&&c.amenity.type===t)return true;return zoneTypeCount(c,t)<CAP[t];}
 function affected(c){const a=[c];for(const [j] of c.nbr)a.push(cells[j]);return a;}
 function myCells(){return cells.filter(c=>c.owner==='me');}
 function empireValue(){return Math.round(myCells().reduce((s,c)=>s+value(c),0));}
@@ -205,30 +230,49 @@ function renderSheet(c){
   else if(pnjOwn){if(c.forSale){const cost=c.ask;h+=`<button class="btn primary" style="flex:1" ${state.money<cost?'disabled':''} onclick="buy(${c.i})">🏷️ Acheter · ${cost} cr</button>`;}else{h+=`<span class="hint" style="flex:1">Ce bien n'est pas à vendre — son propriétaire doit accepter.</span>`;}}
   if(own&&c.amenity&&c.amenity.type==='TRANSPORT')h+=`<button class="btn metro" onclick="startLink(${c.i})">🚇 Relier</button>`;
   h+=`</div>`;
-  if(own){h+=`<div class="row">`;if(!c.forSale){h+=`<button class="btn" onclick="listForSale(${c.i})">🏷️ Mettre en vente</button><button class="btn" onclick="sellRegie(${c.i})">Vendre régie · ${Math.round(value(c)*0.9)} cr</button>`;}else{h+=`<button class="btn gold" style="flex:1" onclick="unlist(${c.i})">En vente à ${c.ask} cr — retirer</button>`;}h+=`</div>`;}
+  if(own){h+=`<div class="row">`;if(!c.forSale){h+=`<button class="btn" onclick="listForSale(${c.i})">🏷️ Mettre en vente</button><button class="btn" onclick="sellRegie(${c.i})">Vendre régie · ${Math.round(value(c)*0.9)} cr</button>`;}else{h+=`<button class="btn gold" onclick="listForSale(${c.i})">🏷️ ${c.ask} cr — modifier</button><button class="btn" onclick="unlist(${c.i})">Retirer</button>`;}h+=`</div>`;}
   if(own){h+=`<div class="sub" style="margin-top:6px">${c.amenity?'Améliorer (niveau '+(c.amenity.level+1)+')':'Construire / transformer'} — choisis pour voir l'aperçu d'impact :</div><div class="types" id="types"></div><div id="previewInfo" class="hint"></div><div class="row"><button class="btn primary" id="buildBtn" style="flex:1" disabled>Choisis une aménité</button></div>`;}
   document.getElementById('sBody').innerHTML=h;
   if(own)renderTypes(c);
 }
 function renderTypes(c){const td=document.getElementById('types');const lvl=c.amenity?c.amenity.level+1:1;const types=c.amenity?[c.amenity.type]:['COMMERCE','ECOLE','PARC','TRANSPORT','RESIDENTIEL'];
-  td.innerHTML=types.map(t=>`<div class="typ" data-t="${t}"><span class="e">${EMOJI[t]}</span>${t.slice(0,5).toLowerCase()}</div>`).join('');
-  td.querySelectorAll('.typ').forEach(el=>el.onclick=()=>{td.querySelectorAll('.typ').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');preview(c,el.dataset.t,lvl);});}
+  td.innerHTML=types.map(t=>{const ok=canBuild(c,t);const capInfo=(t in CAP)&&!(c.amenity&&c.amenity.type===t)?`<div style="font-size:9px;color:var(--dim)">${zoneTypeCount(c,t)}/${CAP[t]}</div>`:'';return `<div class="typ${ok?'':' disabled'}" data-t="${t}" title="${ok?'':'Limite de secteur atteinte'}"><span class="e">${EMOJI[t]}</span>${t.slice(0,5).toLowerCase()}${capInfo}</div>`;}).join('');
+  td.querySelectorAll('.typ:not(.disabled)').forEach(el=>el.onclick=()=>{td.querySelectorAll('.typ').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');preview(c,el.dataset.t,lvl);});}
 function valueWithout(n,c,oldA){const cur=c.amenity;c.amenity=oldA;const v=value(n);c.amenity=cur;return v;}
-function preview(c,t,lvl){const aff=affected(c);const before=new Map();aff.forEach(n=>before.set(n,value(n)));const old=c.amenity;c.amenity={type:t,level:lvl,by:'me'};previewSet=new Set();let mineGain=0;aff.forEach(n=>{const d=value(n)-before.get(n);if(d>0.5){previewSet.add(n);if(n.owner==='me'||n===c)mineGain+=d;}});c.amenity=old;const cost=buildCost(c,lvl);document.getElementById('previewInfo').innerHTML=`Coût ${cost} cr · ${previewSet.size} bâtiment(s) voisin(s) valorisé(s)${mineGain>0?' · <span class="pos">+'+Math.round(mineGain)+' sur tes biens</span>':''}`;const bb=document.getElementById('buildBtn');bb.disabled=state.money<cost;bb.textContent=(c.amenity?'Améliorer':'Construire')+' '+EMOJI[t]+' · '+cost+' cr';bb.onclick=()=>build(c,t,lvl,cost);redraw();}
+function preview(c,t,lvl){if(!canBuild(c,t)){toast('Zonage : trop de '+t.toLowerCase()+' dans le secteur (max '+CAP[t]+')');return;}const aff=affected(c);const before=new Map();aff.forEach(n=>before.set(n,value(n)));const old=c.amenity;c.amenity={type:t,level:lvl,by:'me'};previewSet=new Set();let mineGain=0;aff.forEach(n=>{const d=value(n)-before.get(n);if(d>0.5){previewSet.add(n);if(n.owner==='me'||n===c)mineGain+=d;}});c.amenity=old;const cost=buildCost(c,lvl);document.getElementById('previewInfo').innerHTML=`Coût ${cost} cr · ${previewSet.size} bâtiment(s) voisin(s) valorisé(s)${mineGain>0?' · <span class="pos">+'+Math.round(mineGain)+' sur tes biens</span>':''}`;const bb=document.getElementById('buildBtn');bb.disabled=state.money<cost;bb.textContent=(c.amenity?'Améliorer':'Construire')+' '+EMOJI[t]+' · '+cost+' cr';bb.onclick=()=>build(c,t,lvl,cost);redraw();}
 function build(c,t,lvl,cost){if(state.money<cost)return;state.money-=cost;const old=c.amenity;c.amenity={type:t,level:lvl,by:'me'};affected(c).forEach(n=>{if(n===c)return;const bef=valueWithout(n,c,old);const aft=value(n);const d=aft-bef;if(d>0.5){pulse(n);floatFx(n,'+'+Math.round(d/bef*100)+'%');}});refreshMarker(c);pulse(c);toast(lvl>1?'Amélioré !':'Construit ! Le quartier réagit.');previewSet=null;syncHUD();renderSheet(c);redraw();save();}
 function buy(i){const c=cells[i];let cost;
   if(!c.owner){cost=buyCost(c);if(state.money<cost)return;state.money-=cost;c.owner='me';}
   else if(c.owner!=='me'&&c.forSale){cost=c.ask;if(state.money<cost)return;state.money-=cost;c.owner='me';c.forSale=false;c.ask=0;}
   else return;
   if(c.amenity)c.amenity.by='me';recalcNetwork();toast('Acquis · '+(c.near||c.cat));syncHUD();renderSheet(c);redraw();save();}
-function listForSale(i){const c=cells[i];if(c.owner!=='me')return;c.forSale=true;c.ask=Math.round(value(c)*1.1);toast('🏷️ En vente · '+c.ask+' cr (un voisin peut l\'acheter)');renderSheet(c);redraw();save();}
-function unlist(i){const c=cells[i];c.forSale=false;c.ask=0;toast('Retiré de la vente');renderSheet(c);redraw();save();}
+function listForSale(i){const c=cells[i];if(c.owner!=='me')return;const suggest=Math.round(value(c)*1.1);const inp=prompt('Prix de vente (crédits)\nValeur réaliste estimée : '+suggest+' cr.\nGarde ce prix, ou saisis le tien (un prix élevé se vend plus lentement) :',suggest);if(inp===null)return;let ask=Math.round(Number(String(inp).replace(',','.')));if(!isFinite(ask)||ask<=0)ask=suggest;c.forSale=true;c.ask=ask;toast('🏷️ En vente · '+ask+' cr'+(ask>suggest?' (au-dessus du marché)':(ask<Math.round(value(c))?' (vente rapide)':'')));renderSheet(c);redraw();save();refreshMarketIfOpen();updateMkBadge();}
+function unlist(i){const c=cells[i];c.forSale=false;c.ask=0;toast('Retiré de la vente');renderSheet(c);redraw();save();refreshMarketIfOpen();updateMkBadge();}
 function sellRegie(i){const c=cells[i];if(c.owner!=='me')return;const g=Math.round(value(c)*0.9);state.money+=g;c.owner=null;c.forSale=false;c.ask=0;if(c.amenity)c.amenity.by=null;selected=null;closeSheet();clearSelLines();recalcNetwork();toast('Vendu à la régie · +'+g+' cr');syncHUD();redraw();save();}
+// ===== Panneau Marché =====
+function renderMarket(){const items=cells.filter(c=>c.forSale).sort((a,b)=>a.ask-b.ask);const el=document.getElementById('mkList');if(!items.length){el.innerHTML='<div class="hint" style="padding:12px 6px">Aucun bien à vendre pour l\'instant. Les voisins en mettront en vente au fil des jours — ou mets un des tiens en vente.</div>';return;}el.innerHTML=items.map(c=>{const own=c.owner==='me';const owner=own?'à toi':('@'+pnjName(c.owner));const can=!own&&state.money>=c.ask;const title=(c.amenity?EMOJI[c.amenity.type]+' ':'')+(c.near||('Bâtiment '+c.cat));return `<div class="mkitem"><div class="top"><b>${title}</b><span class="price">${c.ask} cr</span></div><div class="meta">${owner} · valeur ${Math.round(value(c))} · ~${c.area} m²</div><div class="acts">${own?`<button class="btn" onclick="mkUnlist(${c.i})">Retirer</button>`:`<button class="btn primary" ${can?'':'disabled'} onclick="mkBuy(${c.i})">Acheter</button>`}<button class="btn" onclick="mkView(${c.i})">Voir</button></div></div>`;}).join('');}
+function openMarket(){closePortfolio();renderMarket();document.getElementById('market').classList.add('open');}
+function closeMarket(){document.getElementById('market').classList.remove('open');}
+function refreshMarketIfOpen(){if(document.getElementById('market').classList.contains('open'))renderMarket();}
+function renderPortfolio(){const items=myCells().sort((a,b)=>value(b)-value(a));document.getElementById('pfTitle').textContent=`📦 Mes biens (${items.length}) · ${empireValue()}`;const el=document.getElementById('pfList');if(!items.length){el.innerHTML='<div class="hint" style="padding:12px 6px">Tu ne possèdes rien encore. Achète un bâtiment sur la carte pour démarrer.</div>';return;}el.innerHTML=items.map(c=>{const r=rentePerDay(value(c))+(c.amenity?builderOp(c.amenity)-maint(c.amenity):0);const title=(c.amenity?EMOJI[c.amenity.type]+' ':'')+(c.near||('Bâtiment '+c.cat));return `<div class="mkitem"><div class="top"><b>${title}</b><span class="price">${Math.round(value(c))}</span></div><div class="meta">rente +${r.toFixed(1)}/j · ~${c.area} m²${c.forSale?' · 🏷️ en vente '+c.ask:''}</div><div class="acts"><button class="btn" onclick="pfView(${c.i})">Voir</button></div></div>`;}).join('');}
+function openPortfolio(){closeMarket();renderPortfolio();document.getElementById('portfolio').classList.add('open');}
+function closePortfolio(){document.getElementById('portfolio').classList.remove('open');}
+function refreshPortfolioIfOpen(){if(document.getElementById('portfolio').classList.contains('open'))renderPortfolio();}
+function pfView(i){const c=cells[i];closePortfolio();map.setView([c.lat,c.lon],18);select(c);}
+function updateMkBadge(){const n=cells.filter(c=>c.forSale&&c.owner&&c.owner!=='me').length;const b=document.getElementById('mkBadge');if(b){if(n>0){b.textContent=n;b.style.display='flex';}else b.style.display='none';}}
+function mkBuy(i){buy(i);renderMarket();}
+function mkUnlist(i){unlist(i);renderMarket();}
+function mkView(i){const c=cells[i];closeMarket();map.setView([c.lat,c.lon],18);select(c);}
 
 // ===== Tour / PNJ / feed =====
-function nextDay(){if(state.over)return;state.pending+=dailyNet();state.day++;expireEvents();const feed=[];if(Math.random()<0.6){const ev=applyRandomEvent();if(ev)feed.push(ev);}recomputeBoosts();const actors=shuffle(PNJ.slice()).slice(0,2);for(const p of actors)pnjAct(p,feed);const fsMine=myCells().filter(c=>c.forSale);for(const c of fsMine){if(Math.random()<0.32){const buyer=PNJ[Math.floor(Math.random()*PNJ.length)].id;const price=c.ask;state.money+=price;c.owner=buyer;c.forSale=false;c.ask=0;const isR=buyer===state.rivalId;feed.push({t:`${isR?'⚔️ ':''}🏷️ <b>@${pnjName(buyer)}</b> a racheté ton bien ${c.near?('« '+c.near+' »'):''} pour <span class="amt pos">+${price} cr</span>`,cls:''});break;}}if(!feed.length)feed.push({t:'Nuit calme dans le quartier.',cls:'muted'});state.feed=feed;showFeed();syncHUD();redraw();save();if(state.day>30||empireValue()>=state.goal)endSeason();}
+function nextDay(){if(state.over)return;
+  let rev=0,cost=0;for(const c of myCells()){const v=value(c);if(c.amenity){rev+=rentePerDay(v)+builderOp(c.amenity);cost+=maint(c.amenity);}else{rev+=rentePerDay(v);cost+=fricheTax(c);}}
+  const net=rev-cost;state.money+=net;
+  state.day++;expireEvents();const feed=[];
+  feed.push({t:`💰 <b>Bilan du jour</b> : <span class="amt ${net>=0?'pos':'neg'}">${net>=0?'+':''}${Math.round(net)} cr</span> <span class="muted">(revenus +${Math.round(rev)}, charges -${Math.round(cost)})</span>`,cls:''});
+  if(Math.random()<0.6){const ev=applyRandomEvent();if(ev)feed.push(ev);}recomputeBoosts();const actors=shuffle(PNJ.slice()).slice(0,2);for(const p of actors)pnjAct(p,feed);const fsMine=myCells().filter(c=>c.forSale);for(const c of fsMine){const ratio=c.ask/Math.max(1,value(c));const prob=ratio<=1?0.42:(ratio<=1.3?0.24:0.08);if(Math.random()<prob){const buyer=PNJ[Math.floor(Math.random()*PNJ.length)].id;const price=c.ask;state.money+=price;c.owner=buyer;c.forSale=false;c.ask=0;const isR=buyer===state.rivalId;feed.push({t:`${isR?'⚔️ ':''}🏷️ <b>@${pnjName(buyer)}</b> a racheté ton bien ${c.near?('« '+c.near+' »'):''} pour <span class="amt pos">+${price} cr</span>`,cls:''});break;}}if(!feed.length)feed.push({t:'Nuit calme dans le quartier.',cls:'muted'});state.feed=feed;showFeed();syncHUD();redraw();save();if(state.day>30||empireValue()>=state.goal)endSeason();}
 function snapshot(arr){const m=new Map();arr.forEach(c=>m.set(c,value(c)));return m;}
-function pnjAct(p,feed){const mine=myCells();const isRival=p.id===state.rivalId;const holdings=cells.filter(c=>c.owner===p.id);if(holdings.length){if(Math.random()<0.22){const h=holdings[Math.floor(Math.random()*holdings.length)];if(!h.forSale){h.forSale=true;h.ask=Math.round(value(h)*1.05);}}else if(Math.random()<0.15){const lst=holdings.filter(c=>c.forSale);if(lst.length)lst[0].forSale=false;}}const own=cells.filter(c=>c.owner===p.id&&c.amenity&&c.amenity.level<3);if(own.length&&Math.random()<0.45){const t=own[Math.floor(Math.random()*own.length)];const before=snapshot(mine);t.amenity.level++;refreshMarker(t);feedDelta(p,t,before,mine,feed,'a agrandi son '+t.amenity.type.toLowerCase(),isRival);redraw();return;}let pool=cells.filter(c=>!c.owner);if(isRival&&mine.length){pool.sort((a,b)=>minDistToMine(a,mine)-minDistToMine(b,mine));pool=pool.slice(0,10);}else{pool.sort((a,b)=>b.socle-a.socle);pool=pool.slice(0,12);}const tg=pool[Math.floor(Math.random()*pool.length)];if(!tg)return;tg.owner=p.id;const ty=tg.cat==='transport'?'TRANSPORT':tg.cat==='parc'?'PARC':tg.cat==='ecole'?'ECOLE':'COMMERCE';const before=snapshot(mine);tg.amenity={type:ty,level:1,by:p.id};refreshMarker(tg);feedDelta(p,tg,before,mine,feed,'a construit un '+ty.toLowerCase(),isRival);redraw();}
+function pnjAct(p,feed){const mine=myCells();const isRival=p.id===state.rivalId;const holdings=cells.filter(c=>c.owner===p.id);if(holdings.length){if(Math.random()<0.22){const h=holdings[Math.floor(Math.random()*holdings.length)];if(!h.forSale){h.forSale=true;h.ask=Math.round(value(h)*1.05);}}else if(Math.random()<0.15){const lst=holdings.filter(c=>c.forSale);if(lst.length)lst[0].forSale=false;}}const own=cells.filter(c=>c.owner===p.id&&c.amenity&&c.amenity.level<3);if(own.length&&Math.random()<0.45){const t=own[Math.floor(Math.random()*own.length)];const before=snapshot(mine);t.amenity.level++;refreshMarker(t);feedDelta(p,t,before,mine,feed,'a agrandi son '+t.amenity.type.toLowerCase(),isRival);redraw();return;}let pool=cells.filter(c=>!c.owner);if(isRival&&mine.length){pool.sort((a,b)=>minDistToMine(a,mine)-minDistToMine(b,mine));pool=pool.slice(0,10);}else{pool.sort((a,b)=>b.socle-a.socle);pool=pool.slice(0,12);}const tg=pool[Math.floor(Math.random()*pool.length)];if(!tg)return;tg.owner=p.id;let ty=tg.cat==='transport'?'TRANSPORT':tg.cat==='parc'?'PARC':tg.cat==='ecole'?'ECOLE':'COMMERCE';if(!canBuild(tg,ty))ty=canBuild(tg,'COMMERCE')?'COMMERCE':'RESIDENTIEL';const before=snapshot(mine);tg.amenity={type:ty,level:1,by:p.id};refreshMarker(tg);feedDelta(p,tg,before,mine,feed,'a construit un '+ty.toLowerCase(),isRival);redraw();}
 function feedDelta(p,target,before,mine,feed,act,isRival){const pre=isRival?'⚔️ ':'';let touched=0,bestc=null,bestd=0;mine.forEach(c=>{const d=value(c)-before.get(c);if(d>0.5){touched++;if(d>bestd){bestd=d;bestc=c;}}});if(touched>0){const pct=Math.round(bestd/(value(bestc)-bestd)*100);feed.push({t:`${pre}${EMOJI[target.amenity.type]} <b>@${p.name}</b> ${act} ${target.near?('('+target.near+')'):''} → ton bien ${bestc.near?('« '+bestc.near+' »'):''} <span class="amt pos">+${pct>0?pct:1}%</span>${touched>1?' (+'+(touched-1)+' autres)':''}`,cls:''});}else{feed.push({t:`${pre}<b>@${p.name}</b> ${act} ${target.near?('('+target.near+')'):'dans le quartier'}.`,cls:isRival?'':'muted'});}}
 function showFeed(){document.getElementById('feedDay').textContent='Jour '+state.day;document.getElementById('feedList').innerHTML=state.feed.map(f=>`<li class="${f.cls}">${f.t}</li>`).join('');document.getElementById('feedModal').classList.add('open');}
 function closeFeed(){document.getElementById('feedModal').classList.remove('open');}
@@ -236,8 +280,7 @@ function closeFeed(){document.getElementById('feedModal').classList.remove('open
 // ===== HUD =====
 const _disp={};
 function animateTo(id,to){const el=document.getElementById(id);if(!el)return;const from=_disp[id]??to;_disp[id]=to;const start=performance.now();(function step(t){const k=Math.min(1,(t-start)/350);el.textContent=Math.round(from+(to-from)*k);if(k<1)requestAnimationFrame(step);})(performance.now());}
-function syncHUD(){const emp=empireValue();animateTo('money',Math.round(state.money));animateTo('empire',emp);document.getElementById('empireGoal').textContent=emp;document.getElementById('day').textContent=state.day;document.getElementById('goal').textContent=state.goal;document.getElementById('progressFill').style.width=Math.min(100,emp/state.goal*100)+'%';const pend=Math.floor(state.pending);document.getElementById('pending').textContent=pend>0?('+'+pend):'';document.getElementById('collectBtn').disabled=pend<1;}
-document.getElementById('collectBtn').onclick=()=>{const g=Math.floor(state.pending);if(g<1)return;state.money+=g;state.pending-=g;toast('+'+g+' crédits perçus');syncHUD();save();if(selected)renderSheet(selected);};
+function syncHUD(){const emp=empireValue();animateTo('money',Math.round(state.money));animateTo('empire',emp);document.getElementById('empireGoal').textContent=emp;document.getElementById('day').textContent=state.day;document.getElementById('goal').textContent=state.goal;document.getElementById('progressFill').style.width=Math.min(100,emp/state.goal*100)+'%';updateMkBadge();refreshMarketIfOpen();refreshPortfolioIfOpen();}
 document.getElementById('nextDay').onclick=nextDay;
 let toastT;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -248,6 +291,8 @@ function closeOnboard(){document.getElementById('onboard').classList.remove('ope
 document.getElementById('menuBtn').onclick=()=>{if(confirm('Nouvelle partie ? La progression actuelle sera perdue.'))newGame();};
 document.getElementById('locate').onclick=()=>{const mine=myCells();if(mine.length){const g=L.featureGroup(mine.map(c=>c.layer).filter(Boolean));try{map.fitBounds(g.getBounds().pad(0.3));}catch(e){}toast('Tes biens : '+mine.length);}else{map.setView(D.center,16);toast('Tu ne possèdes rien — achète un bâtiment pour démarrer');}};
 document.getElementById('help').onclick=()=>document.getElementById('onboard').classList.add('open');
+document.getElementById('market-btn').onclick=openMarket;
+document.getElementById('portfolio-btn').onclick=openPortfolio;
 
 // ===== Boot =====
 createMap();
