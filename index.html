@@ -64,6 +64,7 @@
   #portfolio .mkhead h3{margin:0;font-size:16px}
   #pfList{overflow:auto;padding:8px 10px;flex:1}
   .typ.disabled{opacity:.35;pointer-events:none;position:relative}
+  #tut{position:fixed;left:50%;bottom:66px;transform:translateX(-50%);z-index:580;background:#143049ee;border:1px solid var(--me);color:#dbeeff;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:600;max-width:92%;text-align:center;display:none;box-shadow:0 2px 10px #0007}
 </style>
 </head>
 <body>
@@ -82,6 +83,7 @@
 <button class="fab" id="help" title="Revoir les règles">?</button>
 <button class="fab" id="market-btn" title="Biens à vendre">🏷️<span id="mkBadge"></span></button>
 <button class="fab" id="portfolio-btn" title="Mes biens">📦</button>
+<div id="tut"></div>
 <div id="market"><div class="mkhead"><h3>🏷️ Biens à vendre</h3><button class="btn sm" onclick="closeMarket()">✕</button></div><div id="mkList"></div></div>
 <div id="portfolio"><div class="mkhead"><h3 id="pfTitle">📦 Mes biens</h3><button class="btn sm" onclick="closePortfolio()">✕</button></div><div id="pfList"></div></div>
 <div id="toast"></div>
@@ -123,7 +125,7 @@ function pnjName(id){const p=PNJ.find(x=>x.id===id);return p?p.name:id;}
 
 function init(){
   cells=freshCells();
-  state={money:1500,day:1,pending:0,goal:4600,feed:[],over:false,events:[],lines:[],offers:[],linkFrom:null,rivalId:PNJ[Math.floor(Math.random()*PNJ.length)].id};
+  state={money:1500,day:1,pending:0,goal:4600,feed:[],over:false,events:[],lines:[],offers:[],linkFrom:null,tutDone:false,rivalId:PNJ[Math.floor(Math.random()*PNJ.length)].id};
   seedPNJ();
   state.contracts=pickContracts();
   const rv=PNJ.find(p=>p.id===state.rivalId);
@@ -135,8 +137,8 @@ function seedPNJ(){
   pick.forEach((c,i)=>{const p=PNJ[i%PNJ.length];c.owner=p.id;const t=c.cat==='transport'?'TRANSPORT':c.cat==='parc'?'PARC':c.cat==='ecole'?'ECOLE':'COMMERCE';c.amenity={type:t,level:1+(Math.random()<0.3?1:0),by:p.id};});
 }
 // ===== Sauvegarde (locale) =====
-function save(){evalContracts();try{const dyn=cells.filter(c=>c.owner||c.amenity).map(c=>({i:c.i,owner:c.owner,amenity:c.amenity,forSale:c.forSale,ask:c.ask,reserve:c.reserve}));localStorage.setItem(KEY,JSON.stringify({v:5,money:state.money,day:state.day,pending:state.pending,goal:state.goal,over:state.over,events:state.events,lines:state.lines,offers:state.offers,contracts:state.contracts,rivalId:state.rivalId,cells:dyn}));}catch(e){}}
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(!s||s.v!==5)return false;cells=freshCells();const bi=new Map(cells.map(c=>[c.i,c]));(s.cells||[]).forEach(d=>{const c=bi.get(d.i);if(c){c.owner=d.owner;c.amenity=d.amenity;c.forSale=!!d.forSale;c.ask=d.ask||0;if(d.reserve!==undefined)c.reserve=d.reserve;}});state={money:s.money,day:s.day,pending:s.pending,goal:s.goal,over:!!s.over,feed:[],events:s.events||[],lines:s.lines||[],offers:s.offers||[],contracts:s.contracts||pickContracts(),linkFrom:null,rivalId:s.rivalId||PNJ[0].id};return true;}catch(e){return false;}}
+function save(){evalContracts();try{const dyn=cells.filter(c=>c.owner||c.amenity).map(c=>({i:c.i,owner:c.owner,amenity:c.amenity,forSale:c.forSale,ask:c.ask,reserve:c.reserve}));localStorage.setItem(KEY,JSON.stringify({v:5,money:state.money,day:state.day,pending:state.pending,goal:state.goal,over:state.over,events:state.events,lines:state.lines,offers:state.offers,contracts:state.contracts,tutDone:state.tutDone,rivalId:state.rivalId,cells:dyn}));}catch(e){}}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(!s||s.v!==5)return false;cells=freshCells();const bi=new Map(cells.map(c=>[c.i,c]));(s.cells||[]).forEach(d=>{const c=bi.get(d.i);if(c){c.owner=d.owner;c.amenity=d.amenity;c.forSale=!!d.forSale;c.ask=d.ask||0;if(d.reserve!==undefined)c.reserve=d.reserve;}});state={money:s.money,day:s.day,pending:s.pending,goal:s.goal,over:!!s.over,feed:[],events:s.events||[],lines:s.lines||[],offers:s.offers||[],contracts:s.contracts||pickContracts(),linkFrom:null,tutDone:(s.tutDone!==undefined?s.tutDone:true),rivalId:s.rivalId||PNJ[0].id};return true;}catch(e){return false;}}
 // ===== Objectifs de saison (contrats) =====
 const CPOOL=[{id:'own6',label:'Posséder 6 bâtiments',reward:200},{id:'emp2000',label:"Atteindre 2000 d'empire",reward:250},{id:'com3',label:'Avoir 3 commerces',reward:160},{id:'parc2',label:'Avoir 2 parcs',reward:150},{id:'net',label:'Relier une ligne de transport',reward:200},{id:'ecole',label:'Construire une école',reward:130},{id:'rich',label:'Posséder un bien valant 300+',reward:180}];
 const CCHECK={own6:()=>myCells().length>=6,emp2000:()=>empireValue()>=2000,com3:()=>myCells().filter(c=>c.amenity&&c.amenity.type==='COMMERCE').length>=3,parc2:()=>myCells().filter(c=>c.amenity&&c.amenity.type==='PARC').length>=2,net:()=>(state.lines||[]).length>=1,ecole:()=>myCells().some(c=>c.amenity&&c.amenity.type==='ECOLE'),rich:()=>myCells().some(c=>value(c)>=300)};
@@ -291,7 +293,8 @@ function closeFeed(){document.getElementById('feedModal').classList.remove('open
 // ===== HUD =====
 const _disp={};
 function animateTo(id,to){const el=document.getElementById(id);if(!el)return;const from=_disp[id]??to;_disp[id]=to;const start=performance.now();(function step(t){const k=Math.min(1,(t-start)/350);el.textContent=Math.round(from+(to-from)*k);if(k<1)requestAnimationFrame(step);})(performance.now());}
-function syncHUD(){const emp=empireValue();animateTo('money',Math.round(state.money));animateTo('empire',emp);document.getElementById('empireGoal').textContent=emp;document.getElementById('day').textContent=state.day;document.getElementById('goal').textContent=state.goal;document.getElementById('progressFill').style.width=Math.min(100,emp/state.goal*100)+'%';updateMkBadge();refreshMarketIfOpen();refreshPortfolioIfOpen();}
+function syncHUD(){const emp=empireValue();animateTo('money',Math.round(state.money));animateTo('empire',emp);document.getElementById('empireGoal').textContent=emp;document.getElementById('day').textContent=state.day;document.getElementById('goal').textContent=state.goal;document.getElementById('progressFill').style.width=Math.min(100,emp/state.goal*100)+'%';updateMkBadge();refreshMarketIfOpen();refreshPortfolioIfOpen();updateTutorial();}
+function updateTutorial(){const el=document.getElementById('tut');if(!el)return;if(state.tutDone){el.style.display='none';return;}const mine=myCells();const built=mine.filter(c=>c.amenity).length;let msg;if(mine.length===0)msg='👆 Tape un bâtiment (zones claires) puis « Acquérir »';else if(built===0)msg='🏗️ Sélectionne ton bâtiment et construis une aménité';else if(state.day<2)msg='⏭️ Appuie sur « Jour + » pour avancer et encaisser';else{state.tutDone=true;el.style.display='none';return;}el.textContent=msg;el.style.display='block';}
 document.getElementById('nextDay').onclick=nextDay;
 let toastT;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
