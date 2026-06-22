@@ -56,9 +56,10 @@ const API='https://cadastria-api.jixter.fr/api';
 const PID=localStorage.getItem('cadastria_pid')||(()=>{const v='p-'+Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('cadastria_pid',v);return v;})();
 const EMOJI={RESIDENTIEL:'🏠',COMMERCE:'🏪',ECOLE:'🏫',PARC:'🌳',TRANSPORT:'🚇'};
 const TYPES=['COMMERCE','ECOLE','PARC','TRANSPORT','RESIDENTIEL'];
-let map,layer,markers,cells=[],byCell={},selected=null,myState={offers:[],contracts:[]};
+let map,layer,markers,lineLayer,cells=[],byCell={},selected=null,linkFrom=null,myState={offers:[],contracts:[],lines:[]};
 
 const mine=c=>c.owner===PID;
+const isStation=c=>c.amenity&&c.amenity.type==='TRANSPORT';
 
 function valColor(v,socle){const r=Math.max(0,Math.min(1,(v-50)/200));const st=[[44,70,110],[40,120,90],[70,180,95],[200,190,80],[255,207,92]];const t=r*(st.length-1),i=Math.floor(t),f=t-i,a=st[i],b=st[Math.min(i+1,st.length-1)];return`rgb(${a[0]+(b[0]-a[0])*f|0},${a[1]+(b[1]-a[1])*f|0},${a[2]+(b[2]-a[2])*f|0})`;}
 function style(c){let color='#5a6b7a',w=1,dash=null;if(mine(c)){color='#3da5ff';w=2.5;}else if(c.owner){color='#e0567a';w=2;}if(c.forSale){color='#ffcf5c';w=2.5;dash='4';}if(selected&&selected.cell===c.cell){color='#fff';w=3.5;}return{color,weight:w,dashArray:dash,fillColor:valColor(c.value,c.socle),fillOpacity:.62,opacity:.95};}
@@ -74,14 +75,18 @@ async function loadWorld(){
   if(!loadWorld._fit){try{map.fitBounds(grp.getBounds().pad(.05));loadWorld._fit=1;}catch(e){}}
 }
 function redraw(){for(const c of cells)c._poly&&c._poly.setStyle(style(c));}
-async function refreshState(){const s=await api('/state');myState=s;document.getElementById('money').textContent=s.money;document.getElementById('empire').textContent=s.empire;document.getElementById('day').textContent=s.day;const n=(s.offers||[]).length,b=document.getElementById('offBadge');if(n){b.textContent=n;b.style.display='flex';}else b.style.display='none';}
+async function refreshState(){const s=await api('/state');myState=s;document.getElementById('money').textContent=s.money;document.getElementById('empire').textContent=s.empire;document.getElementById('day').textContent=s.day;const n=(s.offers||[]).length,b=document.getElementById('offBadge');if(n){b.textContent=n;b.style.display='flex';}else b.style.display='none';drawLines();}
 async function refreshAll(){await loadWorld();await refreshState();}
+function drawLines(){if(!lineLayer)return;lineLayer.clearLayers();for(const [a,b] of (myState.lines||[])){const ca=byCell[a],cb=byCell[b];if(ca&&cb)L.polyline([[ca.lat,ca.lon],[cb.lat,cb.lon]],{color:'#7fd1ff',weight:4,opacity:.85,dashArray:'2 7'}).addTo(lineLayer);}}
 
 // ---- fiche parcelle ----
-function select(cell){selected=byCell[cell];renderSheet();document.getElementById('sheet').classList.add('open');redraw();}
+function select(cell){const c=byCell[cell];
+  if(linkFrom){const from=linkFrom;linkFrom=null;if(from!==cell)doConnect(from,cell);else toast('Même station');return;}
+  selected=c;renderSheet();document.getElementById('sheet').classList.add('open');redraw();}
 function renderSheet(){const c=selected;document.getElementById('sTitle').textContent=(c.amenity?EMOJI[c.amenity.type]+' ':'')+'Parcelle';document.getElementById('sSub').textContent='socle '+c.socle+' · valeur '+c.value+(c.forSale?' · 🏷️ en vente '+c.ask:'');
   let h=`<div class="kv"><span>Propriétaire</span><b>${mine(c)?'TOI':(c.owner?'@'+c.owner:'libre')}</b></div>`;
   if(c.amenity)h+=`<div class="kv"><span>Aménité</span><b>${EMOJI[c.amenity.type]} ${c.amenity.type.toLowerCase()} niv.${c.amenity.level}</b></div>`;
+  if(isStation(c)&&c.netMult>1)h+=`<div class="kv"><span>Réseau 🚇</span><b style="color:#7fd1ff">+${Math.round((c.netMult-1)*100)}%</b></div>`;
   // achats
   if(!c.owner){h+=`<div class="row"><button class="btn primary" style="flex:1" onclick="doBuy('${c.cell}')">Acheter · ${c.value} cr</button></div>`;}
   else if(!mine(c)&&c.forSale){h+=`<div class="row"><button class="btn gold" style="flex:1" onclick="doBuy('${c.cell}')">🏷️ Acheter · ${c.ask} cr</button></div>`;}
@@ -92,6 +97,10 @@ function renderSheet(){const c=selected;document.getElementById('sTitle').textCo
   if(mine(c)){h+=`<div class="row">`;if(!c.forSale){h+=`<button class="btn" onclick="doList('${c.cell}',${c.value})">🏷️ Mettre en vente</button><button class="btn" onclick="doRegie('${c.cell}')">Vendre régie · ${Math.round(c.value*0.9)} cr</button>`;}else{h+=`<button class="btn gold" onclick="doList('${c.cell}',${c.value})">🏷️ ${c.ask} cr — modifier</button><button class="btn" onclick="doUnlist('${c.cell}')">Retirer</button>`;}h+=`</div>`;
     const offs=(myState.offers||[]).filter(o=>o.cell===c.cell);
     for(const o of offs){h+=`<div class="kv"><span>🤝 Offre de @${o.buyer}</span><b style="color:var(--green)">${o.price} cr</b></div><div class="row"><button class="btn gold" onclick="doAccept('${c.cell}','${o.buyer}')">Accepter</button><button class="btn" onclick="doRefuse('${c.cell}','${o.buyer}')">Refuser</button></div>`;}
+    if(isStation(c)){h+=`<div class="row"><button class="btn" onclick="startLink('${c.cell}')">🚇 Relier une station</button></div>`;
+      const myLines=(myState.lines||[]).filter(l=>l.includes(c.cell));
+      for(const l of myLines){const other=l[0]===c.cell?l[1]:l[0];h+=`<div class="kv"><span>🚇 ligne vers ${EMOJI[byCell[other]&&byCell[other].amenity?byCell[other].amenity.type:'TRANSPORT']} station</span><button class="btn" style="padding:4px 8px;font-size:11px" onclick="doDisconnect('${c.cell}','${other}')">Couper</button></div>`;}
+    }
   }
   document.getElementById('sBody').innerHTML=h;
 }
@@ -104,6 +113,9 @@ async function doList(cell,value){const def=Math.round(value*1.1);const inp=prom
 async function doUnlist(cell){await act(async()=>{await api('/parcels/'+cell+'/unlist','POST',{});toast('Retiré de la vente');await refreshAll();select(cell);});}
 async function doRegie(cell){if(!confirm('Vendre ce bien à la régie (90% de sa valeur) ?'))return;await act(async()=>{const r=await api('/parcels/'+cell+'/sell-regie','POST',{});toast('Vendu régie · +'+r.gain+' cr');await refreshAll();document.getElementById('sheet').classList.remove('open');});}
 async function doOffer(cell,value){const def=Math.round(value*1.2);const inp=prompt('Proposer un achat au propriétaire\nValeur estimée : '+value+' cr.\nMontant proposé :',def);if(inp===null)return;const price=Math.round(Number(String(inp).replace(',','.')))||0;await act(async()=>{await api('/parcels/'+cell+'/offer','POST',{price});toast('🤝 Offre envoyée · '+price+' cr');});}
+function startLink(cell){linkFrom=cell;document.getElementById('sheet').classList.remove('open');toast('🚇 Tape une autre de TES stations pour relier');}
+async function doConnect(a,b){await act(async()=>{const r=await api('/parcels/'+a+'/connect','POST',{to:b});toast('🚇 Ligne créée — réseau renforcé');await refreshAll();cheers(r);select(a);});}
+async function doDisconnect(a,b){await act(async()=>{await api('/parcels/'+a+'/disconnect','POST',{to:b});toast('Ligne coupée');await refreshAll();select(a);});}
 async function doAccept(cell,buyer){await act(async()=>{const r=await api('/parcels/'+cell+'/accept-offer','POST',{buyer});toast('✅ Vendu à @'+buyer+' · +'+r.price+' cr');await refreshAll();if(document.getElementById('panel').classList.contains('open'))openPortfolio();else select(cell);});}
 async function doRefuse(cell,buyer){await act(async()=>{await api('/parcels/'+cell+'/refuse-offer','POST',{buyer});toast('Offre refusée');await refreshState();renderSheet();});}
 
@@ -142,8 +154,8 @@ async function boot(){
   map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([49.119,6.176],16);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
   L.control.zoom({position:'bottomright'}).addTo(map);
-  layer=L.layerGroup().addTo(map);markers=L.layerGroup().addTo(map);
-  map.on('click',()=>{selected=null;document.getElementById('sheet').classList.remove('open');redraw();});
+  layer=L.layerGroup().addTo(map);lineLayer=L.layerGroup().addTo(map);markers=L.layerGroup().addTo(map);
+  map.on('click',()=>{if(linkFrom){linkFrom=null;toast('Liaison annulée');return;}selected=null;document.getElementById('sheet').classList.remove('open');redraw();});
   try{await loadWorld();await refreshState();document.getElementById('banner').style.display='none';}
   catch(e){document.getElementById('banner').textContent='Serveur injoignable : '+e.message;}
 }
