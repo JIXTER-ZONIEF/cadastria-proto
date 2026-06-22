@@ -85,7 +85,8 @@
 <button class="fab" id="portfolio-btn" title="Mes biens">📦</button>
 <div id="tut"></div>
 <div id="market"><div class="mkhead"><h3>🏷️ Biens à vendre</h3><button class="btn sm" onclick="closeMarket()">✕</button></div><div id="mkList"></div></div>
-<div id="portfolio"><div class="mkhead"><h3 id="pfTitle">📦 Mes biens</h3><button class="btn sm" onclick="closePortfolio()">✕</button></div><div id="pfList"></div></div>
+<div id="portfolio"><div class="mkhead"><h3 id="pfTitle">📦 Mes biens</h3><div><button class="btn sm" onclick="openShare()">📸</button> <button class="btn sm" onclick="closePortfolio()">✕</button></div></div><div id="pfList"></div></div>
+<div class="modal" id="shareModal"><div class="card center"><h2>📸 Mon empire à Metz</h2><img id="shareImg" alt="" style="width:100%;border-radius:12px;border:1px solid var(--line);margin-bottom:6px"/><div class="row"><button class="btn primary" style="flex:1" onclick="shareCard()">Partager</button><button class="btn" onclick="downloadCard()">Télécharger</button></div><div class="row"><button class="btn" style="flex:1" onclick="document.getElementById('shareModal').classList.remove('open')">Fermer</button></div></div></div>
 <div id="toast"></div>
 
 <div id="sheet"><h3 id="sTitle">Bâtiment</h3><div class="sub" id="sSub"></div><div id="sBody"></div></div>
@@ -103,7 +104,7 @@
   <div class="hint center">Prototype · valeurs de jeu (pas les vrais prix) · bâtiments © OpenStreetMap</div>
 </div></div>
 
-<div class="modal" id="seasonEnd"><div class="card center"><h2 id="seTitle">Fin de saison</h2><div class="big" id="seBody"></div><div class="row"><button class="btn primary" style="flex:1" onclick="restart()">Rejouer</button></div></div></div>
+<div class="modal" id="seasonEnd"><div class="card center"><h2 id="seTitle">Fin de saison</h2><div class="big" id="seBody"></div><div class="row"><button class="btn" style="flex:1" onclick="openShare()">📸 Partager</button><button class="btn primary" style="flex:1" onclick="restart()">Rejouer</button></div></div></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
 <script src="data.js?v=4"></script>
@@ -274,6 +275,23 @@ function openPortfolio(){closeMarket();renderPortfolio();document.getElementById
 function closePortfolio(){document.getElementById('portfolio').classList.remove('open');}
 function refreshPortfolioIfOpen(){if(document.getElementById('portfolio').classList.contains('open'))renderPortfolio();}
 function pfView(i){const c=cells[i];closePortfolio();map.setView([c.lat,c.lon],18);select(c);}
+// ===== Carte de partage =====
+let _shareBlob=null;
+function buildShareCanvas(){const cv=document.createElement('canvas');cv.width=1080;cv.height=1080;const x=cv.getContext('2d');
+  x.fillStyle='#0f1419';x.fillRect(0,0,1080,1080);
+  x.fillStyle='#ffcf5c';x.font='bold 30px sans-serif';x.fillText('CADASTRIA',40,62);
+  x.fillStyle='#e7edf3';x.font='bold 58px sans-serif';x.fillText('Mon empire à Metz',40,132);
+  const emp=empireValue(),mine=myCells().length;let best=0;try{best=+localStorage.getItem('cadastria_best')||0;}catch(e){}
+  const cols=[['Empire',emp,'#37c878'],['Bâtiments',mine,'#3da5ff'],['Jour',state.day+'/30','#e7edf3'],['Record',best,'#ffcf5c']];
+  let cx=40;for(const[lab,val,col]of cols){x.fillStyle='#9fb0c0';x.font='26px sans-serif';x.fillText(lab,cx,205);x.fillStyle=col;x.font='bold 42px sans-serif';x.fillText(String(val),cx,255);cx+=255;}
+  const pad=40,top=300,bot=1000,W=1080;let n=-90,s=90,w=180,e=-180;for(const c of cells){if(c.lat>n)n=c.lat;if(c.lat<s)s=c.lat;if(c.lon<w)w=c.lon;if(c.lon>e)e=c.lon;}
+  const proj=(lat,lon)=>[pad+(lon-w)/(e-w)*(W-2*pad),top+(n-lat)/(n-s)*(bot-top)];
+  for(const c of cells){const own=c.owner==='me';x.beginPath();c.poly.forEach((p,i)=>{const q=proj(p[0],p[1]);i?x.lineTo(q[0],q[1]):x.moveTo(q[0],q[1]);});x.closePath();const v=value(c);const r=Math.max(0,Math.min(1,(v-50)/200));x.fillStyle=own?'#3da5ff':'rgba(120,150,170,'+(0.10+0.22*r).toFixed(2)+')';x.fill();if(own){x.lineWidth=1.5;x.strokeStyle='#bfe0ff';x.stroke();}}
+  x.fillStyle='#6b7c8c';x.font='22px sans-serif';x.fillText('jixter-zonief.github.io/cadastria-proto  ·  © OpenStreetMap',40,1052);
+  return cv;}
+function openShare(){const cv=buildShareCanvas();document.getElementById('shareImg').src=cv.toDataURL('image/png');cv.toBlob(b=>{_shareBlob=b;});document.getElementById('shareModal').classList.add('open');}
+function shareCard(){if(!_shareBlob){toast('Image en préparation…');return;}const file=new File([_shareBlob],'cadastria-metz.png',{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:'Mon empire à Metz',text:'Mon empire sur Cadastria 🗺️ — '+empireValue()+' de valeur'}).catch(()=>{});}else{downloadCard();}}
+function downloadCard(){if(!_shareBlob)return;const a=document.createElement('a');a.href=URL.createObjectURL(_shareBlob);a.download='cadastria-metz.png';a.click();}
 function updateMkBadge(){const n=cells.filter(c=>c.forSale&&c.owner&&c.owner!=='me').length;const b=document.getElementById('mkBadge');if(b){if(n>0){b.textContent=n;b.style.display='flex';}else b.style.display='none';}}
 function mkBuy(i){buy(i);renderMarket();}
 function mkUnlist(i){unlist(i);renderMarket();}
