@@ -76,7 +76,7 @@
   <div class="grow"></div>
   <button class="btn primary" id="nextDay">Jour +</button>
 </div>
-<div id="season"><div class="pill">Saison 1 · Jour <b id="day">1</b>/30 · Empire <b id="empireGoal">0</b>/<b id="goal">5900</b></div></div>
+<div id="season"><div class="pill">Saison 1 · Jour <b id="day">1</b>/30 · Empire <b id="empireGoal">0</b>/<b id="goal">6100</b></div></div>
 <div id="progress"><div id="progressFill"></div></div>
 <div id="linkbar">🚇 Tape une autre de tes stations pour relier — ou la carte pour annuler</div>
 <button class="fab" id="locate" title="Centrer sur mes biens">📍</button>
@@ -98,7 +98,7 @@
   <div class="step"><div class="n">1</div><div><b>Achète</b> un bâtiment (tape dessus). Vise les zones bien placées (plus claires).</div></div>
   <div class="step"><div class="n">2</div><div><b>Construis/transforme</b>. Tu vois <b>en avance</b> quels bâtiments voisins vont prendre de la valeur.</div></div>
   <div class="step"><div class="n">3</div><div>Ça <b>valorise les voisins</b> — les tiens <i>et</i> ceux de Karim, Sophie & co. Eux aussi agissent : reviens voir.</div></div>
-  <div class="step"><div class="n">4</div><div><b>Perçois</b> ta rente, fais grossir ton empire. Objectif : 5900 en 30 jours.</div></div>
+  <div class="step"><div class="n">4</div><div><b>Perçois</b> ta rente, fais grossir ton empire. Objectif : 6100 en 30 jours.</div></div>
   <div class="row"><button class="btn primary" style="flex:1" onclick="closeOnboard()">Jouer</button></div>
   <div class="hint center">Prototype · valeurs de jeu (pas les vrais prix) · bâtiments © OpenStreetMap</div>
 </div></div>
@@ -109,10 +109,11 @@
 <script src="data.js?v=4"></script>
 <script>
 // ===== Paramètres éco (miroir du futur cadastria-econ-core) =====
-const P={multMax:2.5,k:6,pnjInflCap:4.5,totalInflCap:8,commerceSchoolBonus:2.0,captureBare:0.30,captureBuilt:1.0,builderBonus:1.3,renteRate:0.055,renteExp:0.8,fricheTaxRate:0.03,maintRate:0.10,buildBase:50,buildDens:10,pnjBuyMarkup:1.15,netStep:0.22,netMax:6};
-const WEIGHT={RESIDENTIEL:0,COMMERCE:1,ECOLE:1,PARC:1.5,TRANSPORT:2};
-const OP={RESIDENTIEL:2,COMMERCE:5,ECOLE:3,PARC:3,TRANSPORT:4};
-const EMOJI={RESIDENTIEL:'🏠',COMMERCE:'🏪',ECOLE:'🏫',PARC:'🌳',TRANSPORT:'🚇'};
+const P={multMax:2.5,k:6,pnjInflCap:4.5,totalInflCap:8,commerceSchoolBonus:2.0,captureBare:0.30,captureBuilt:1.0,builderBonus:1.3,renteRate:0.055,renteExp:0.8,fricheTaxRate:0.03,maintRate:0.10,buildBase:50,buildDens:10,pnjBuyMarkup:1.15,netStep:0.26,netMax:8};
+const WEIGHT={RESIDENTIEL:0,COMMERCE:1,ECOLE:1,PARC:1.5,TRANSPORT:2,MARCHE:1.3,BUREAU:1.2};
+const OP={RESIDENTIEL:2,COMMERCE:5,ECOLE:3,PARC:3,TRANSPORT:4,MARCHE:6,BUREAU:7};
+const EMOJI={RESIDENTIEL:'🏠',COMMERCE:'🏪',ECOLE:'🏫',PARC:'🌳',TRANSPORT:'🚇',MARCHE:'🛒',BUREAU:'🏢'};
+const SYN={COMMERCE:{p:'ECOLE',m:2.0},MARCHE:{p:'RESIDENTIEL',m:1.6},BUREAU:{p:'TRANSPORT',m:1.8}};
 const PNJ=[{id:'p0',name:'Karim',c:'#e0567a'},{id:'p1',name:'Sophie',c:'#37c878'},{id:'p2',name:'Léa',c:'#d79a23'},{id:'p3',name:'Marc',c:'#9b6cf0'},{id:'p4',name:'Nadia',c:'#2b9fd1'}];
 function lvlF(l){return l<=1?1:(l===2?1.5:1.8);}
 
@@ -125,7 +126,7 @@ function pnjName(id){const p=PNJ.find(x=>x.id===id);return p?p.name:id;}
 
 function init(){
   cells=freshCells();
-  state={money:1500,day:1,pending:0,goal:5900,feed:[],over:false,events:[],lines:[],offers:[],linkFrom:null,tutDone:false,rivalId:PNJ[Math.floor(Math.random()*PNJ.length)].id};
+  state={money:1500,day:1,pending:0,goal:6100,feed:[],over:false,events:[],lines:[],offers:[],linkFrom:null,tutDone:false,rivalId:PNJ[Math.floor(Math.random()*PNJ.length)].id};
   seedPNJ();
   state.contracts=pickContracts();
   const rv=PNJ.find(p=>p.id===state.rivalId);
@@ -172,7 +173,8 @@ function applyRandomEvent(){
 // ===== Éco (sur voisinage réel précalculé cell.nbr = [[index, kernel], ...]) =====
 function ownerKind(c){return c.owner==='me'?'HUMAN':(c.owner?'PNJ':null);}
 function hasSchoolAdj(c){return c.nbr.some(([j,k])=>k>=0.5&&cells[j].amenity&&cells[j].amenity.type==='ECOLE');}
-function contrib(a,c,k){let w=WEIGHT[a.type];if(w<=0)return 0;if(a.type==='COMMERCE'&&hasSchoolAdj(c))w*=P.commerceSchoolBonus;if(a.type==='TRANSPORT')w*=(c.netMult||1);return w*k*lvlF(a.level);}
+function hasAdjType(c,t){return c.nbr.some(([j,k])=>k>=0.5&&cells[j].amenity&&cells[j].amenity.type===t);}
+function contrib(a,c,k){let w=WEIGHT[a.type];if(w<=0)return 0;const s=SYN[a.type];if(s&&hasAdjType(c,s.p))w*=s.m;if(a.type==='TRANSPORT')w*=(c.netMult||1);return w*k*lvlF(a.level);}
 function influence(c){
   let pnj=0,hum=0;
   if(c.amenity){const ct=contrib(c.amenity,c,1.0);if(ownerKind(c)==='PNJ')pnj+=ct;else hum+=ct;}
@@ -188,7 +190,7 @@ function fricheTax(c){return P.fricheTaxRate*c.socle;}
 function buyCost(c){return Math.round(value(c)*(c.owner&&c.owner!=='me'?P.pnjBuyMarkup:1));}
 function buildCost(c,level){const d=c.nbr.filter(([j])=>cells[j].amenity).length;return Math.round((P.buildBase+P.buildDens*d)*lvlF(level));}
 // Zonage : plafond par type d'aménité dans un secteur (~500 m). RESIDENTIEL illimité.
-const CAP={ECOLE:3,TRANSPORT:3,PARC:4,COMMERCE:12};const ZONE_R=160;
+const CAP={ECOLE:3,TRANSPORT:3,PARC:4,COMMERCE:12,MARCHE:6,BUREAU:8};const ZONE_R=160;
 function zoneTypeCount(c,t){let n=0;for(const o of cells){if(o!==c&&o.amenity&&o.amenity.type===t&&gdist(o,c)<=ZONE_R)n++;}return n;}
 function canBuild(c,t){if(!(t in CAP))return true;if(c.amenity&&c.amenity.type===t)return true;return zoneTypeCount(c,t)<CAP[t];}
 function affected(c){const a=[c];for(const [j] of c.nbr)a.push(cells[j]);return a;}
@@ -244,7 +246,7 @@ function renderSheet(c){
   document.getElementById('sBody').innerHTML=h;
   if(own)renderTypes(c);
 }
-function renderTypes(c){const td=document.getElementById('types');const lvl=c.amenity?c.amenity.level+1:1;const types=c.amenity?[c.amenity.type]:['COMMERCE','ECOLE','PARC','TRANSPORT','RESIDENTIEL'];
+function renderTypes(c){const td=document.getElementById('types');const lvl=c.amenity?c.amenity.level+1:1;const types=c.amenity?[c.amenity.type]:['COMMERCE','MARCHE','BUREAU','ECOLE','PARC','TRANSPORT','RESIDENTIEL'];
   td.innerHTML=types.map(t=>{const ok=canBuild(c,t);const capInfo=(t in CAP)&&!(c.amenity&&c.amenity.type===t)?`<div style="font-size:9px;color:var(--dim)">${zoneTypeCount(c,t)}/${CAP[t]}</div>`:'';return `<div class="typ${ok?'':' disabled'}" data-t="${t}" title="${ok?'':'Limite de secteur atteinte'}"><span class="e">${EMOJI[t]}</span>${t.slice(0,5).toLowerCase()}${capInfo}</div>`;}).join('');
   td.querySelectorAll('.typ:not(.disabled)').forEach(el=>el.onclick=()=>{td.querySelectorAll('.typ').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');preview(c,el.dataset.t,lvl);});}
 function valueWithout(n,c,oldA){const cur=c.amenity;c.amenity=oldA;const v=value(n);c.amenity=cur;return v;}
