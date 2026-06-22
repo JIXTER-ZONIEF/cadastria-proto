@@ -40,6 +40,7 @@
   <div class="stat"><b id="empire">—</b><span>empire</span></div>
   <div class="stat"><b id="day">—</b><span>jour</span></div>
   <div class="grow"></div>
+  <button class="btn icon" id="lbBtn" title="Classement">🏆</button>
   <button class="btn icon" id="feedBtn" title="Actualité du monde">📰<span class="badge" id="wdBadge" style="display:none;background:#3da5ff;color:#04243f"></span></button>
   <button class="btn icon" id="marketBtn" title="Biens à vendre">🏷️</button>
   <button class="btn icon" id="pfBtn" title="Mes biens & objectifs">📋<span class="badge" id="offBadge" style="display:none"></span></button>
@@ -129,11 +130,21 @@ function closePanel(){document.getElementById('panel').classList.remove('open');
 document.getElementById('marketBtn').onclick=()=>act(openMarket);
 document.getElementById('pfBtn').onclick=()=>act(openPortfolio);
 document.getElementById('feedBtn').onclick=()=>act(openFeed);
+document.getElementById('lbBtn').onclick=()=>act(openLeaderboard);
 async function refreshFeedBadge(){try{const f=await api('/feed');const b=document.getElementById('wdBadge');b.textContent='j'+f.worldDay;b.style.display='flex';return f;}catch(e){}}
 async function openFeed(){const f=await api('/feed');document.getElementById('pTitle').textContent='📰 Monde · jour '+f.worldDay;
+  const season=`<div class="sub">🗓️ Saison ${f.season} · fin dans ${f.seasonEndsInDays} j (sur ${f.seasonDays})</div>`;
   const evs=(f.events||[]).map(e=>`<div class="item"><div class="top"><b>${e.emoji} ${e.label}</b><span class="price" style="color:${e.factor>=1?'var(--green)':'var(--bad)'}">${e.factor>=1?'+':'-'}${Math.round(Math.abs(e.factor-1)*100)}%</span></div><div class="meta">encore ${e.ticksLeft} j</div><div class="row"><button class="btn" onclick="goTo('${e.center}')">Voir</button></div></div>`).join('');
   const items=(f.items||[]).map(it=>`<div class="meta" style="padding:4px 2px">j${it.day} · ${it.text}</div>`).join('')||'<div class="sub">Rien à signaler.</div>';
-  document.getElementById('pBody').innerHTML=(evs?'<div class="sub">⚡ Événements en cours</div>'+evs:'')+'<div class="sub" style="margin-top:8px">🗞️ Derniers faits</div>'+items;
+  document.getElementById('pBody').innerHTML=season+(evs?'<div class="sub" style="margin-top:6px">⚡ Événements en cours</div>'+evs:'')+'<div class="sub" style="margin-top:8px">🗞️ Derniers faits</div>'+items;
+  openPanel();}
+async function openLeaderboard(){const [lb,st,seasons]=await Promise.all([api('/leaderboard'),api('/state'),api('/seasons')]);
+  document.getElementById('pTitle').textContent='🏆 Classement · saison '+st.season;
+  const medal=r=>r===1?'🥇':r===2?'🥈':r===3?'🥉':'#'+r;
+  const me=`<div class="sub">Toi : ${st.rank?medal(st.rank):'—'} · valeur nette ${st.net}</div>`;
+  const rows=lb.length?lb.map(r=>{const mine=r.player===PID;return `<div class="item" style="${mine?'border-color:var(--me)':''}"><div class="top"><b>${medal(r.rank)} ${mine?'TOI':'@'+r.player}</b><span class="price">${r.net}</span></div><div class="meta">argent ${r.money} · empire ${r.empire} · ${r.owned} biens</div></div>`;}).join(''):'<div class="sub">Personne au classement.</div>';
+  const past=(seasons||[]).length?'<div class="sub" style="margin-top:8px">📜 Saisons passées</div>'+seasons.map(s=>`<div class="meta" style="padding:3px 2px">Saison ${s.season} · 🏆 ${s.winner?'@'+s.winner:'—'} (${s.winnerScore})</div>`).join(''):'';
+  document.getElementById('pBody').innerHTML=me+rows+past;
   openPanel();}
 
 async function openMarket(){const items=await api('/market');document.getElementById('pTitle').textContent='🏷️ Biens à vendre ('+items.length+')';
