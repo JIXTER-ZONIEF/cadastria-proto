@@ -40,6 +40,7 @@
   <div class="stat"><b id="empire">—</b><span>empire</span></div>
   <div class="stat"><b id="day">—</b><span>jour</span></div>
   <div class="grow"></div>
+  <button class="btn icon" id="feedBtn" title="Actualité du monde">📰<span class="badge" id="wdBadge" style="display:none;background:#3da5ff;color:#04243f"></span></button>
   <button class="btn icon" id="marketBtn" title="Biens à vendre">🏷️</button>
   <button class="btn icon" id="pfBtn" title="Mes biens & objectifs">📋<span class="badge" id="offBadge" style="display:none"></span></button>
   <button class="btn primary" id="nextDay">Jour +</button>
@@ -126,6 +127,13 @@ function openPanel(){document.getElementById('panel').classList.add('open');}
 function closePanel(){document.getElementById('panel').classList.remove('open');}
 document.getElementById('marketBtn').onclick=()=>act(openMarket);
 document.getElementById('pfBtn').onclick=()=>act(openPortfolio);
+document.getElementById('feedBtn').onclick=()=>act(openFeed);
+async function refreshFeedBadge(){try{const f=await api('/feed');const b=document.getElementById('wdBadge');b.textContent='j'+f.worldDay;b.style.display='flex';return f;}catch(e){}}
+async function openFeed(){const f=await api('/feed');document.getElementById('pTitle').textContent='📰 Monde · jour '+f.worldDay;
+  const evs=(f.events||[]).map(e=>`<div class="item"><div class="top"><b>${e.emoji} ${e.label}</b><span class="price" style="color:${e.factor>=1?'var(--green)':'var(--bad)'}">${e.factor>=1?'+':'-'}${Math.round(Math.abs(e.factor-1)*100)}%</span></div><div class="meta">encore ${e.ticksLeft} j</div><div class="row"><button class="btn" onclick="goTo('${e.center}')">Voir</button></div></div>`).join('');
+  const items=(f.items||[]).map(it=>`<div class="meta" style="padding:4px 2px">j${it.day} · ${it.text}</div>`).join('')||'<div class="sub">Rien pour l\\'instant.</div>';
+  document.getElementById('pBody').innerHTML=(evs?'<div class="sub">⚡ Événements en cours</div>'+evs:'')+'<div class="sub" style="margin-top:8px">🗞️ Derniers faits</div>'+items;
+  openPanel();}
 
 async function openMarket(){const items=await api('/market');document.getElementById('pTitle').textContent='🏷️ Biens à vendre ('+items.length+')';
   const el=document.getElementById('pBody');
@@ -156,8 +164,10 @@ async function boot(){
   L.control.zoom({position:'bottomright'}).addTo(map);
   layer=L.layerGroup().addTo(map);lineLayer=L.layerGroup().addTo(map);markers=L.layerGroup().addTo(map);
   map.on('click',()=>{if(linkFrom){linkFrom=null;toast('Liaison annulée');return;}selected=null;document.getElementById('sheet').classList.remove('open');redraw();});
-  try{await loadWorld();await refreshState();document.getElementById('banner').style.display='none';}
+  try{await loadWorld();await refreshState();await refreshFeedBadge();document.getElementById('banner').style.display='none';}
   catch(e){document.getElementById('banner').textContent='Serveur injoignable : '+e.message;}
+  // le monde bouge tout seul (tick ~90s) : rafraîchissement discret
+  setInterval(async()=>{try{await loadWorld();await refreshState();await refreshFeedBadge();}catch(e){}},60000);
 }
 boot();
 </script>
