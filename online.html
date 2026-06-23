@@ -106,6 +106,8 @@ function renderSheet(){const c=selected;document.getElementById('sTitle').textCo
   else if(!mine(c)){h+=`<div class="row"><button class="btn" style="flex:1" onclick="doOffer('${c.cell}',${c.value})">🤝 Proposer un achat</button></div>`;}
   // construire (les miennes, nues)
   if(mine(c)&&!c.amenity){h+=`<div class="sub">Construire :</div><div class="types">`+TYPES.map(t=>`<div class="typ" onclick="doBuild('${c.cell}','${t}')"><span class="e">${EMOJI[t]}</span>${t.slice(0,5).toLowerCase()}</div>`).join('')+`</div>`;}
+  // améliorer (les miennes, bâties, niv < 3)
+  if(mine(c)&&c.amenity&&c.amenity.level<3){h+=`<div class="row"><button class="btn primary" style="flex:1" onclick="doUpgrade('${c.cell}')">⬆️ Améliorer · niveau ${c.amenity.level+1}</button></div>`;}
   // gérer (les miennes)
   if(mine(c)){h+=`<div class="row">`;if(!c.forSale){h+=`<button class="btn" onclick="doList('${c.cell}',${c.value})">🏷️ Mettre en vente</button><button class="btn" onclick="doRegie('${c.cell}')">Vendre régie · ${Math.round(c.value*0.9)} cr</button>`;}else{h+=`<button class="btn gold" onclick="doList('${c.cell}',${c.value})">🏷️ ${c.ask} cr — modifier</button><button class="btn" onclick="doUnlist('${c.cell}')">Retirer</button>`;}h+=`</div>`;
     const offs=(myState.offers||[]).filter(o=>o.cell===c.cell);
@@ -122,6 +124,7 @@ function renderSheet(){const c=selected;document.getElementById('sTitle').textCo
 async function act(fn){try{await fn();}catch(e){toast(e.message);}}
 async function doBuy(cell){await act(async()=>{const r=await api('/parcels/'+cell+'/buy','POST');toast('Acquis · '+(r.paid!=null?'-'+r.paid+' cr':''));await refreshAll();cheers(r);select(cell);});}
 async function doBuild(cell,type){await act(async()=>{const r=await api('/parcels/'+cell+'/build','POST',{type,level:1});toast('Construit !');await refreshAll();cheers(r);select(cell);});}
+async function doUpgrade(cell){await act(async()=>{const r=await api('/parcels/'+cell+'/upgrade','POST');toast('⬆️ Amélioré niv '+(r.amenity?r.amenity.level:'')+' · -'+(r.paid||0)+' cr');await refreshAll();cheers(r);select(cell);});}
 async function doList(cell,value){const def=Math.round(value*1.1);const inp=prompt('Prix de vente (crédits)\nPrix réaliste estimé : '+def+' cr.\nGarde-le ou saisis le tien :',def);if(inp===null)return;const ask=Math.round(Number(String(inp).replace(',','.')))||0;await act(async()=>{const r=await api('/parcels/'+cell+'/list','POST',{ask});toast('🏷️ En vente · '+r.ask+' cr');await refreshAll();select(cell);});}
 async function doUnlist(cell){await act(async()=>{await api('/parcels/'+cell+'/unlist','POST',{});toast('Retiré de la vente');await refreshAll();select(cell);});}
 async function doRegie(cell){if(!confirm('Vendre ce bien à la régie (90% de sa valeur) ?'))return;await act(async()=>{const r=await api('/parcels/'+cell+'/sell-regie','POST',{});toast('Vendu régie · +'+r.gain+' cr');await refreshAll();document.getElementById('sheet').classList.remove('open');});}
